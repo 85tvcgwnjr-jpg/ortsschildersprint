@@ -5,6 +5,9 @@ on:
     - cron: "0 3 1 * *"   # 1st of every month at 03:00 UTC
   workflow_dispatch:        # manual trigger via GitHub UI → Actions tab
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   update-signs:
     name: Import German Ortsschilder from OSM
