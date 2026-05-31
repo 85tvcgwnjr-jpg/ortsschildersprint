@@ -235,9 +235,10 @@
       <h2>Registrieren</h2>
       <div id="reg-error" class="auth-error" style="display:none"></div>
       <div id="reg-info"  class="auth-info"  style="display:none"></div>
+      <input class="auth-input" type="text"     id="reg-name"     placeholder="Name">
       <input class="auth-input" type="email"    id="reg-email"    placeholder="E-Mail">
       <input class="auth-input" type="password" id="reg-password" placeholder="Passwort">
-      <input class="auth-input" type="text" id="reg-device" placeholder="Garmin Device ID">
+      <input class="auth-input" type="text"     id="reg-device"   placeholder="Garmin Device ID">
       <button class="btn-primary" id="btn-register">Registrieren</button>
       <div class="auth-switch">Schon registriert? <a id="to-login">Anmelden</a></div>
     </div>
@@ -312,6 +313,7 @@
   });
 
   document.getElementById("btn-register").addEventListener("click", async () => {
+    const name     = document.getElementById("reg-name").value.trim();
     const email    = document.getElementById("reg-email").value.trim();
     const password = document.getElementById("reg-password").value;
     const deviceId = document.getElementById("reg-device").value.trim();
@@ -328,7 +330,7 @@
 
     const { error } = await sb.auth.signUp({
       email, password,
-      options: { data: { device_id: deviceId } }
+      options: { data: { display_name: name, device_id: deviceId } }
     });
 
     if (error) {
@@ -342,6 +344,7 @@
     } else {
       infoEl.textContent = "✓ Registriert! Bitte E-Mail bestätigen.";
       infoEl.style.display = "block";
+      document.getElementById("reg-name").value     = "";
       document.getElementById("reg-email").value    = "";
       document.getElementById("reg-password").value = "";
       document.getElementById("reg-device").value   = "";
@@ -352,12 +355,29 @@
 
   // ── Auth State ────────────────────────────────────────────────────────────
 
-  sb.auth.onAuthStateChange((_event, session) => {
+  sb.auth.onAuthStateChange(async (_event, session) => {
     if (session) {
       document.getElementById("auth-screen").style.display = "none";
       document.getElementById("app-screen").style.display  = "block";
-      document.getElementById("user-info").textContent     = session.user.email;
-      loadApp(session.user.user_metadata?.device_id || "");
+      const displayName = session.user.user_metadata?.display_name || session.user.email;
+      const deviceId    = session.user.user_metadata?.device_id || "";
+      document.getElementById("user-info").textContent = displayName;
+
+      // Upsert profile so rankings can show names
+      if (deviceId && displayName) {
+        fetch(SUPABASE_URL + "/rest/v1/profiles", {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": "Bearer " + session.access_token,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify({ device_id: deviceId, display_name: displayName, updated_at: new Date().toISOString() })
+        }).catch(() => {});
+      }
+
+      loadApp(deviceId);
     } else {
       document.getElementById("auth-screen").style.display = "flex";
       document.getElementById("app-screen").style.display  = "none";
@@ -366,6 +386,17 @@
   });
 
   // ── Ranking popup ─────────────────────────────────────────────────────────
+
+  async function loadProfiles(deviceIds) {
+    if (!deviceIds.length) return {};
+    const ids = deviceIds.map(d => `"${d}"`).join(",");
+    try {
+      const rows = await fetchJSON(`/rest/v1/profiles?device_id=in.(${encodeURIComponent(deviceIds.join(","))})&select=device_id,display_name`);
+      const map = {};
+      for (const r of rows) map[r.device_id] = r.display_name;
+      return map;
+    } catch(e) { return {}; }
+  }
 
   async function buildRankingHtml(signId, crossingTs, myDeviceId) {
     const tFrom = crossingTs - 30;
@@ -387,13 +418,18 @@
       .filter(([, ts]) => ts <= cutoff)
       .sort(([, a], [, b]) => a - b);
     if (group.length === 0) return '<div class="popup-loading">Keine Daten</div>';
+
+    // Load display names for all devices in this group
+    const profiles = await loadProfiles(group.map(([dev]) => dev));
+
     const medals = ["gold","silver","bronze"];
     return group.map(([dev, ts], i) => {
-      const delta = (ts - leaderTs).toFixed(1);
-      const isMe  = myDeviceId && dev === myDeviceId;
+      const delta   = (ts - leaderTs).toFixed(1);
+      const isMe    = myDeviceId && dev === myDeviceId;
+      const devName = isMe ? "Du" : (profiles[dev] || dev);
       return `<div class="popup-row">
         <div class="popup-rank ${medals[i]||''}">${i+1}.</div>
-        <div class="popup-dev ${isMe?"me":""}">${isMe ? "Du" : shortId(dev)}</div>
+        <div class="popup-dev ${isMe?"me":""}">${devName}</div>
         <div class="popup-delta">${i===0 ? "Führend" : "+"+delta+"s"}</div>
       </div>`;
     }).join("");

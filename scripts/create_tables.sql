@@ -66,3 +66,24 @@ alter table rides enable row level security;
 
 create policy "anon insert rides"
     on rides for insert to anon with check (true);
+
+
+-- ── profiles ──────────────────────────────────────────────────────────────────
+-- Maps device_id → display_name. Written by website on login, read for rankings.
+
+create table if not exists profiles (
+    device_id    text        primary key,
+    display_name text        not null,
+    updated_at   timestamptz not null default now()
+);
+
+alter table profiles enable row level security;
+
+create policy "anon read profiles"
+    on profiles for select to anon using (true);
+
+create policy "anon upsert profiles"
+    on profiles for insert to anon with check (true);
+
+create policy "anon update profiles"
+    on profiles for update to anon using (true);
