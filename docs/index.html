@@ -34,11 +34,12 @@
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
+    html, body {
       font-family: var(--fb);
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
     }
 
     /* ── Scrollbar ── */
@@ -751,7 +752,7 @@
 
 <!-- ══ Header ══ -->
 <header id="main-header">
-  <svg class="header-scene" viewBox="0 0 900 210" fill="none" xmlns="http://www.w3.org/2000/svg"
+  <svg class="header-scene" viewBox="0 0 900 175" fill="none" xmlns="http://www.w3.org/2000/svg"
        stroke-linecap="round" stroke-linejoin="round">
     <defs>
       <!-- Pfosten -->
