@@ -1772,18 +1772,16 @@
 
   function renderSidebarRides(activeFeaturedId) {
     const sidebarRides = document.getElementById("sidebar-rides");
-    const others = allRides.filter(r => r.id !== activeFeaturedId);
 
-    if (others.length === 0) {
-      sidebarRides.innerHTML = `<div class="sidebar-rides-empty">Keine weiteren Fahrten</div>`;
+    if (allRides.length === 0) {
+      sidebarRides.innerHTML = `<div class="sidebar-rides-empty">Keine Fahrten</div>`;
       return;
     }
 
     sidebarRides.innerHTML = '';
-    others.forEach(ride => {
-      const dur  = ride.ended_at - ride.started_at;
+    allRides.forEach(ride => {
       const item = document.createElement("div");
-      item.className = "sidebar-ride-item";
+      item.className = "sidebar-ride-item" + (ride.id === activeFeaturedId ? " active" : "");
       item.innerHTML = `<div class="sidebar-ride-date">${fmtTime(ride.started_at)}</div>`;
       item.addEventListener("click", async () => {
         document.querySelectorAll(".sidebar-ride-item").forEach(el => el.classList.remove("active"));
