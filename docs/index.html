@@ -799,7 +799,7 @@
     errEl.style.display = "none";
 
     if (!email || !password) {
-      errEl.textContent = "Bitte E-Mail und Passwort eingeben.";
+      errEl.textContent = "Bitte E-Mail und Passwort eingeben";
       errEl.style.display = "block";
       return;
     }
@@ -822,7 +822,7 @@
     infoEl.style.display = "none";
 
     if (!name || !email || !password || !deviceId) {
-      errEl.textContent = "Bitte alle Felder ausfüllen.";
+      errEl.textContent = "Bitte alle Felder ausfüllen";
       errEl.style.display = "block";
       return;
     }
@@ -838,13 +838,13 @@
     if (error) {
       const msg = error.message.toLowerCase();
       errEl.textContent = (msg.includes("rate") || msg.includes("limit"))
-        ? "Versuche es später erneut."
+        ? "Versuche es später erneut"
         : (msg.includes("already") || msg.includes("registered") || msg.includes("existing"))
-        ? "Ein Konto mit dieser E-Mail-Adresse existiert bereits."
+        ? "Ein Konto mit dieser E-Mail-Adresse existiert bereits"
         : error.message;
       errEl.style.display = "block";
     } else {
-      infoEl.textContent = "✓ Registriert! Bitte E-Mail bestätigen.";
+      infoEl.textContent = "✓ Registriert! Bitte E-Mail bestätigen";
       infoEl.style.display = "block";
       document.getElementById("reg-name").value     = "";
       document.getElementById("reg-email").value    = "";
@@ -1138,7 +1138,7 @@
 
   async function exportImage(card, btn, myDeviceId) {
     const d = card._exportData;
-    if (!d) { alert("Öffne die Fahrt zuerst."); return; }
+    if (!d) { alert("Öffne die Fahrt zuerst"); return; }
     btn.innerHTML = "Erstelle…"; btn.disabled = true;
 
     try {
@@ -1235,41 +1235,47 @@
       const rides = await fetchJSON(url);
 
       if (rides.length === 0) {
+        root.className = '';
         root.innerHTML = `<div class="empty-state">
-          <svg width="72" height="48" viewBox="0 0 200 120" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="opacity:.2;margin-bottom:.8rem">
-            <circle cx="40" cy="88" r="28" stroke-width="8"/>
-            <circle cx="160" cy="88" r="28" stroke-width="8"/>
-            <circle cx="100" cy="80" r="5" fill="currentColor" stroke="none"/>
-            <line x1="40" y1="88" x2="100" y2="80" stroke-width="6"/>
-            <line x1="40" y1="88" x2="92" y2="42" stroke-width="5"/>
-            <line x1="100" y1="80" x2="92" y2="42" stroke-width="7"/>
-            <line x1="92" y1="42" x2="132" y2="44" stroke-width="5"/>
-            <line x1="100" y1="80" x2="132" y2="44" stroke-width="7"/>
-            <line x1="132" y1="44" x2="160" y2="88" stroke-width="6"/>
-            <path d="M82 38 C86 34 96 34 106 37" stroke-width="7"/>
-            <line x1="132" y1="44" x2="138" y2="30" stroke-width="5"/>
-            <path d="M130 30 C135 24 143 24 147 30 C149 36 146 42 141 42" stroke-width="5"/>
+          <svg width="96" height="60" viewBox="0 0 240 150" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="opacity:.2;margin-bottom:.8rem">
+            <circle cx="52"  cy="94" r="44" stroke-width="8.5"/>
+            <circle cx="188" cy="94" r="44" stroke-width="8.5"/>
+            <line x1="52"  y1="94" x2="110" y2="104" stroke-width="8.5"/>
+            <line x1="86"  y1="50" x2="52"  y2="94"  stroke-width="8.5"/>
+            <line x1="110" y1="104" x2="86" y2="50"  stroke-width="8.5"/>
+            <line x1="86"  y1="50" x2="163" y2="45"  stroke-width="8.5"/>
+            <line x1="110" y1="104" x2="167" y2="66" stroke-width="8.5"/>
+            <line x1="163" y1="45" x2="167" y2="66"  stroke-width="8.5"/>
+            <line x1="167" y1="66" x2="188" y2="94"  stroke-width="8.5"/>
+            <circle cx="110" cy="104" r="7" fill="currentColor" stroke="none"/>
+            <line x1="86"  y1="50" x2="86"  y2="35"  stroke-width="8.5"/>
+            <line x1="71"  y1="35" x2="101" y2="35"  stroke-width="8.5"/>
+            <line x1="163" y1="45" x2="176" y2="30"  stroke-width="8.5"/>
+            <path d="M173,30 C178,20 194,21 197,31 C199,41 195,56 187,58" stroke-width="8.5" fill="none"/>
           </svg>
           <strong>Noch keine Fahrten</strong>
-          Beende eine Aktivität auf dem Garmin und sie erscheint hier.
+          Beende eine Aktivität auf dem Garmin und sie erscheint hier
         </div>`;
         return;
       }
 
+      root.className = '';
       root.innerHTML = `<div class="section-label">
-        <svg width="14" height="14" viewBox="0 0 200 120" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:6px;opacity:.6">
-          <circle cx="40" cy="88" r="28" stroke-width="8"/>
-          <circle cx="160" cy="88" r="28" stroke-width="8"/>
-          <circle cx="100" cy="80" r="5" fill="currentColor" stroke="none"/>
-          <line x1="40" y1="88" x2="100" y2="80" stroke-width="6"/>
-          <line x1="40" y1="88" x2="92" y2="42" stroke-width="5"/>
-          <line x1="100" y1="80" x2="92" y2="42" stroke-width="7"/>
-          <line x1="92" y1="42" x2="132" y2="44" stroke-width="5"/>
-          <line x1="100" y1="80" x2="132" y2="44" stroke-width="7"/>
-          <line x1="132" y1="44" x2="160" y2="88" stroke-width="6"/>
-          <path d="M82 38 C86 34 96 34 106 37" stroke-width="7"/>
-          <line x1="132" y1="44" x2="138" y2="30" stroke-width="5"/>
-          <path d="M130 30 C135 24 143 24 147 30 C149 36 146 42 141 42" stroke-width="5"/>
+        <svg width="19" height="12" viewBox="0 0 240 150" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:6px;opacity:.6">
+          <circle cx="52"  cy="94" r="44" stroke-width="8.5"/>
+          <circle cx="188" cy="94" r="44" stroke-width="8.5"/>
+          <line x1="52"  y1="94" x2="110" y2="104" stroke-width="8.5"/>
+          <line x1="86"  y1="50" x2="52"  y2="94"  stroke-width="8.5"/>
+          <line x1="110" y1="104" x2="86" y2="50"  stroke-width="8.5"/>
+          <line x1="86"  y1="50" x2="163" y2="45"  stroke-width="8.5"/>
+          <line x1="110" y1="104" x2="167" y2="66" stroke-width="8.5"/>
+          <line x1="163" y1="45" x2="167" y2="66"  stroke-width="8.5"/>
+          <line x1="167" y1="66" x2="188" y2="94"  stroke-width="8.5"/>
+          <circle cx="110" cy="104" r="7" fill="currentColor" stroke="none"/>
+          <line x1="86"  y1="50" x2="86"  y2="35"  stroke-width="8.5"/>
+          <line x1="71"  y1="35" x2="101" y2="35"  stroke-width="8.5"/>
+          <line x1="163" y1="45" x2="176" y2="30"  stroke-width="8.5"/>
+          <path d="M173,30 C178,20 194,21 197,31 C199,41 195,56 187,58" stroke-width="8.5" fill="none"/>
         </svg>
         Deine Fahrten
       </div>`;
