@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ortsschildersprint</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 104'%3E%3Crect x='37' y='64' width='6' height='40' fill='%23aaa'/%3E%3Crect x='3' y='3' width='74' height='58' rx='11' fill='%23000'/%3E%3Crect x='8' y='8' width='64' height='48' rx='8' fill='%23FFCC00'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -75,10 +75,12 @@
 
     /* Cyclists group — slides right on hover (app mode only) */
     .cyclists-group {
-      transition: transform 1s cubic-bezier(0.22, 0.61, 0.36, 1);
+      transition: transform 1s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.4s;
+      opacity: 0.5;
     }
     header.app-mode:hover .cyclists-group {
       transform: translateX(130px);
+      opacity: 1;
     }
 
     /* Speed lines — brighten on hover (app mode only) */
@@ -101,7 +103,13 @@
     /* Menu open: cyclists sprint fully off right edge */
     header.menu-open .cyclists-group {
       transform: translateX(1000px) !important;
-      transition: transform 0.85s cubic-bezier(0.55, 0, 0.85, 0.4) !important;
+      transition: transform 0.85s cubic-bezier(0.55, 0, 0.85, 0.4), opacity 0.4s !important;
+      opacity: 1;
+    }
+    /* Rear cyclist: transition only on menu-open (outward), instant return */
+    header.menu-open .cyclist-back {
+      transform: translateX(-70px);
+      transition: transform 0.6s cubic-bezier(0.6, 0, 0.9, 0.5);
     }
     header.menu-open .speed-lines line {
       opacity: 0.45 !important;
@@ -112,9 +120,9 @@
     ══════════════════════════════════════ */
     .hamburger-btn {
       position: absolute;
-      top: 50%;
-      right: 16px;
-      transform: translateY(-50%);
+      top: 14px;
+      left: 14px;
+      transform: none;
       background: rgba(13,13,16,0.7);
       border: 1px solid var(--border2);
       border-radius: 8px;
@@ -155,10 +163,10 @@
       backdrop-filter: blur(3px);
       z-index: 999;
       opacity: 0;
-      pointer-events: none;
+      pointer-events: none; /* niemals Mausevents abfangen — verhindert Flackern */
       transition: opacity 0.35s;
     }
-    .sidebar-overlay.open { opacity: 1; pointer-events: all; }
+    .sidebar-overlay.open { opacity: 1; }
 
     .sidebar {
       position: fixed;
@@ -200,11 +208,86 @@
       line-height: 1;
       margin-bottom: 4px;
     }
+    .sidebar-device-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 3px;
+    }
     .sidebar-device-id {
       font-size: 0.72rem;
       color: var(--text3);
       font-family: var(--fb);
       letter-spacing: 0.03em;
+    }
+    .sidebar-edit-btn {
+      background: none;
+      border: none;
+      color: var(--text3);
+      cursor: pointer;
+      padding: 2px;
+      line-height: 0;
+      flex-shrink: 0;
+      transition: color 0.15s;
+    }
+    .sidebar-edit-btn:hover { color: var(--yellow); }
+
+    .sidebar-device-edit {
+      display: none;
+      margin-top: 10px;
+    }
+    .sidebar-device-edit.active { display: block; }
+
+    .sidebar-edit-input {
+      width: 100%;
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      color: var(--text);
+      font-family: var(--fb);
+      font-size: 0.8rem;
+      outline: none;
+      margin-bottom: 7px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .sidebar-edit-input:focus {
+      border-color: var(--yellow);
+      box-shadow: 0 0 0 3px var(--yellow-lo);
+    }
+    .sidebar-edit-actions { display: flex; gap: 6px; }
+    .sidebar-save-btn {
+      flex: 1;
+      background: var(--yellow);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 0.42rem 0;
+      font-family: var(--fd);
+      font-size: 1rem;
+      letter-spacing: 0.07em;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .sidebar-save-btn:hover { background: #f5c400; }
+    .sidebar-save-btn:disabled { background: var(--surface3); color: var(--text3); cursor: not-allowed; }
+    .sidebar-cancel-btn {
+      background: none;
+      color: var(--text2);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 0.42rem 0.75rem;
+      font-family: var(--fb);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .sidebar-cancel-btn:hover { color: var(--text); border-color: var(--text2); }
+    .sidebar-edit-msg {
+      font-size: 0.73rem;
+      margin-top: 5px;
+      display: none;
+      line-height: 1.4;
     }
 
     .sidebar-nav {
@@ -369,13 +452,7 @@
     #app-screen { display: none; }
 
     .app-bar {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0.55rem 1.4rem;
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 0.9rem;
+      display: none;
     }
 
     .user-chip {
@@ -422,110 +499,51 @@
     .btn-logout:hover { border-color: var(--red); color: var(--red); }
 
     /* ══════════════════════════════════════
-       RIDE LIST
+       FEATURED RIDE (Hauptscreen)
     ══════════════════════════════════════ */
     .container {
-      max-width: 660px;
+      max-width: 700px;
       margin: 0 auto;
       padding: 1.6rem 1rem 3rem;
-    }
-
-    .section-label {
-      font-family: var(--fd);
-      font-size: 0.9rem;
-      letter-spacing: 0.18em;
-      color: var(--text3);
-      text-transform: uppercase;
-      margin-bottom: 1rem;
-      padding-left: 2px;
-    }
-
-    .ride-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
-    .ride-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-left: 3px solid transparent;
-      border-radius: var(--r);
-      overflow: hidden;
-      transition: border-left-color 0.2s, box-shadow 0.2s, background 0.15s;
-      animation: rideIn 0.35s ease both;
-    }
-    .ride-card:hover {
-      border-left-color: var(--yellow);
-      box-shadow: 0 4px 28px rgba(255,204,0,0.05);
-    }
-    .ride-card.open {
-      border-left-color: var(--yellow);
-      box-shadow: 0 6px 32px rgba(255,204,0,0.08);
     }
 
     @keyframes rideIn {
       from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .ride-card:nth-child(1)  { animation-delay: 0.04s; }
-    .ride-card:nth-child(2)  { animation-delay: 0.08s; }
-    .ride-card:nth-child(3)  { animation-delay: 0.12s; }
-    .ride-card:nth-child(4)  { animation-delay: 0.16s; }
-    .ride-card:nth-child(5)  { animation-delay: 0.20s; }
-    .ride-card:nth-child(6)  { animation-delay: 0.24s; }
-    .ride-card:nth-child(n+7){ animation-delay: 0.28s; }
 
-    .ride-header {
-      padding: 0.95rem 1.2rem;
+    .featured-ride {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--yellow);
+      border-radius: var(--r);
+      overflow: hidden;
+      animation: rideIn 0.3s ease both;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+    }
+    .featured-info {
+      padding: 1.1rem 1.3rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      cursor: pointer;
-      user-select: none;
       gap: 1rem;
     }
-    .ride-header:hover { background: rgba(255,255,255,0.015); }
-
-    .ride-title {
+    .featured-title {
       font-family: var(--fd);
-      font-size: 1.3rem;
+      font-size: 1.6rem;
       letter-spacing: 0.05em;
       color: var(--text);
       line-height: 1;
       margin-bottom: 3px;
     }
-    .ride-meta {
-      font-size: 0.76rem;
+    .featured-meta {
+      font-size: 0.78rem;
       color: var(--text2);
-      font-weight: 400;
     }
-
-    .toggle-icon {
-      flex-shrink: 0;
-      color: var(--text3);
-      transition: transform 0.25s cubic-bezier(.34,1.2,.64,1), color 0.2s;
-      display: flex;
-      align-items: center;
-    }
-    .ride-card.open .toggle-icon {
-      transform: rotate(180deg);
-      color: var(--yellow);
-    }
-
-    /* Smooth reveal animation for ride body */
-    .ride-body {
-      display: none;
-      border-top: 1px solid var(--border);
-    }
-    .ride-card.open .ride-body { display: block; }
-
     .map-container {
-      height: 280px;
+      height: 360px;
     }
-    .map-container .leaflet-container {
-      background: #0e0e14;
-    }
+    .map-container .leaflet-container { background: #0e0e14; }
 
     .ride-actions {
       padding: 0.65rem 1.1rem;
@@ -533,6 +551,66 @@
       display: flex;
       gap: 0.5rem;
       background: var(--surface2);
+    }
+
+    /* ══════════════════════════════════════
+       SIDEBAR RIDES LIST
+    ══════════════════════════════════════ */
+    .sidebar-rides {
+      flex: 1 1 0;       /* wächst, aber schrumpft auch — kein min-height-Problem */
+      min-height: 0;     /* wichtig: erlaubt Flex-Kind kleiner als Content zu werden */
+      overflow-y: auto;
+      padding: 0.3rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-rides::-webkit-scrollbar { width: 3px; }
+    .sidebar-rides::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .sidebar-rides-empty {
+      padding: 2rem 1.5rem;
+      color: var(--text3);
+      font-size: 0.78rem;
+      text-align: center;
+    }
+
+    .sidebar-ride-item {
+      padding: 0.72rem 1.3rem;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .sidebar-ride-item:hover {
+      background: var(--surface2);
+      border-left-color: var(--yellow);
+    }
+    .sidebar-ride-item.active {
+      background: var(--yellow-lo);
+      border-left-color: var(--yellow);
+    }
+    .sidebar-ride-date {
+      font-family: var(--fd);
+      font-size: 1.05rem;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .sidebar-ride-dur {
+      font-size: 0.72rem;
+      color: var(--text2);
+    }
+
+    /* Profil + Footer nie schrumpfen */
+    .sidebar-profile      { flex-shrink: 0; }
+    .sidebar-footer-area  { flex-shrink: 0; padding-bottom: 0.4rem; }
+    .sidebar-wordmark {
+      font-family: var(--fd);
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      color: var(--text3);
+      text-align: center;
+      padding: 0.5rem 1.5rem 0.8rem;
     }
 
     .btn {
@@ -676,16 +754,44 @@
   <svg class="header-scene" viewBox="0 0 900 210" fill="none" xmlns="http://www.w3.org/2000/svg"
        stroke-linecap="round" stroke-linejoin="round">
     <defs>
+      <!-- Pfosten -->
       <linearGradient id="pole-g" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#ccc"/>
-        <stop offset="50%" stop-color="#666"/>
-        <stop offset="100%" stop-color="#ccc"/>
+        <stop offset="0%"   stop-color="#b0b0b0"/>
+        <stop offset="20%"  stop-color="#e8e8e8"/>
+        <stop offset="50%"  stop-color="#f5f5f5"/>
+        <stop offset="80%"  stop-color="#d0d0d0"/>
+        <stop offset="100%" stop-color="#a0a0a0"/>
       </linearGradient>
+      <!-- Rahmen Metall -->
+      <linearGradient id="frame-g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#e0e0e0"/>
+        <stop offset="30%"  stop-color="#c8c8c8"/>
+        <stop offset="70%"  stop-color="#a8a8a8"/>
+        <stop offset="100%" stop-color="#888"/>
+      </linearGradient>
+      <!-- Rahmen innere Fase (heller oben-links) -->
+      <linearGradient id="frame-hi" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#fff" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#000" stop-opacity="0.18"/>
+      </linearGradient>
+      <!-- Gelb mit leichtem Glanz -->
+      <linearGradient id="yellow-g" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%"   stop-color="#FFD700"/>
+        <stop offset="40%"  stop-color="#FFCC00"/>
+        <stop offset="100%" stop-color="#F0BE00"/>
+      </linearGradient>
+      <!-- Schraube Glanz -->
+      <radialGradient id="bolt-g" cx="35%" cy="30%">
+        <stop offset="0%"   stop-color="#fff" stop-opacity="0.9"/>
+        <stop offset="60%"  stop-color="#ccc" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#888" stop-opacity="0.2"/>
+      </radialGradient>
       <!-- Subtle background gradient -->
       <linearGradient id="sky-g" x1="0%" y1="0%" x2="0%" y2="100%">
         <stop offset="0%" stop-color="#0a0a0d"/>
         <stop offset="100%" stop-color="#0d0d10"/>
       </linearGradient>
+      <!-- Filter: Weißer Hintergrund → Transparent, dunkle Linien → Weiß -->
     </defs>
 
     <!-- Background -->
@@ -717,23 +823,19 @@
     <line x1="740" y1="188" x2="780" y2="188" stroke="#222228" stroke-width="3"/>
     <line x1="820" y1="188" x2="860" y2="188" stroke="#222228" stroke-width="3"/>
 
-    <!-- ═══ SIGN GROUP — centered at x=693, pole at x=693 ═══ -->
+    <!-- ═══ SIGN GROUP — center x=693 ═══ -->
     <g class="sign-group">
-      <!-- Pole — centered at x=693 -->
-      <rect x="689" y="94" width="8" height="84" fill="url(#pole-g)" rx="2"/>
-      <!-- Drop shadow -->
-      <rect x="387" y="13" width="310" height="83" rx="14" fill="#000" opacity="0.4" transform="translate(3,4)"/>
-      <!-- Black border rect — x=387 to x=697, center=542... wait let me recalculate -->
-      <!-- Sign: center at x=693, width=310 → left=538, right=848 -->
-      <rect x="538" y="9"  width="310" height="83" rx="14" fill="#000"/>
-      <!-- Yellow sign body — 6px inset on each side -->
-      <rect x="544" y="14" width="298" height="73" rx="10" fill="#FFCC00"/>
-      <!-- Sign text — centered at x=693 -->
-      <text x="693" y="53"
-            font-family="'Bebas Neue', 'Arial Narrow', sans-serif"
-            font-size="26" fill="#000"
-            text-anchor="middle" dominant-baseline="middle"
-            letter-spacing="0">ortsschildersprint</text>
+      <!-- sign_1.png: 3:2 ratio, center x=745, rotated -10° toward road direction -->
+      <g style="transform-box: fill-box; transform-origin: center; transform: perspective(350px) rotateY(40deg);">
+
+        <rect x="743" y="93" width="4" height="95" fill="#aaaaaa" rx="1"/>
+        <image href="imageOrtsschild.png" x="698" y="40" width="90" height="60"/>
+        <text x="743" y="70"
+              font-family="'Bebas Neue', 'Arial Narrow', sans-serif"
+              font-size="6" fill="#1a1200"
+              text-anchor="middle" dominant-baseline="middle"
+              textLength="72" lengthAdjust="spacingAndGlyphs">ortsschildersprint</text>
+      </g>
     </g>
 
     <!-- ═══ SPEED LINES behind cyclists ═══ -->
@@ -755,102 +857,14 @@
       Result: wheel-to-wheel with ~18px gap, bodies clearly separate.
     -->
     <g class="cyclists-group">
-
-      <!-- ── RIDER B — behind, 84% scale, leg phase B ── -->
-      <g transform="translate(50,178) scale(0.84)" stroke="#FFCC00" stroke-linecap="round" stroke-linejoin="round" opacity="0.78">
-        <!-- Rear wheel -->
-        <circle cx="0"  cy="-30" r="30" stroke-width="4.5" fill="none"/>
-        <line x1="0"  y1="-60" x2="0"  y2="0"    stroke-width="1.4" opacity="0.32"/>
-        <line x1="-30" y1="-30" x2="30" y2="-30" stroke-width="1.4" opacity="0.32"/>
-        <line x1="-21" y1="-51" x2="21" y2="-9"  stroke-width="1.4" opacity="0.32"/>
-        <line x1="21"  y1="-51" x2="-21" y2="-9" stroke-width="1.4" opacity="0.32"/>
-        <circle cx="0" cy="-30" r="4.5" fill="#FFCC00" stroke="none"/>
-        <!-- Front wheel -->
-        <circle cx="76" cy="-30" r="30" stroke-width="4.5" fill="none"/>
-        <line x1="76" y1="-60" x2="76" y2="0"    stroke-width="1.4" opacity="0.32"/>
-        <line x1="46" y1="-30" x2="106" y2="-30" stroke-width="1.4" opacity="0.32"/>
-        <line x1="55" y1="-51" x2="97"  y2="-9"  stroke-width="1.4" opacity="0.32"/>
-        <line x1="97" y1="-51" x2="55"  y2="-9"  stroke-width="1.4" opacity="0.32"/>
-        <circle cx="76" cy="-30" r="4.5" fill="#FFCC00" stroke="none"/>
-        <!-- BB + chainring -->
-        <circle cx="35" cy="-22" r="6" fill="#FFCC00" stroke="none"/>
-        <circle cx="35" cy="-22" r="18" stroke-width="2" opacity="0.28" fill="none"/>
-        <!-- Frame -->
-        <line x1="0"  y1="-30" x2="35" y2="-22" stroke-width="4.5"/>  <!-- chainstay -->
-        <line x1="0"  y1="-30" x2="24" y2="-82" stroke-width="3"/>    <!-- seatstay -->
-        <line x1="35" y1="-22" x2="24" y2="-82" stroke-width="5"/>    <!-- seat tube -->
-        <line x1="24" y1="-82" x2="66" y2="-47" stroke-width="3.5"/>  <!-- top tube -->
-        <line x1="35" y1="-22" x2="66" y2="-47" stroke-width="5"/>    <!-- down tube -->
-        <line x1="66" y1="-47" x2="76" y2="-30" stroke-width="4.5"/> <!-- fork -->
-        <!-- Saddle -->
-        <path d="M13,-87 C18,-93 29,-93 40,-87" stroke-width="5" fill="none"/>
-        <!-- Stem -->
-        <line x1="66" y1="-47" x2="71" y2="-64" stroke-width="4"/>
-        <!-- Drop handlebar (Rennrad) -->
-        <path d="M67,-64 C72,-73 83,-73 87,-64 C89,-56 86,-45 80,-44" stroke-width="3.5" fill="none"/>
-        <!-- Rider: torso VERY horizontal (aggressive sprint) -->
-        <line x1="24" y1="-86" x2="68" y2="-68" stroke-width="6"/>
-        <!-- Head — aero helmet, low -->
-        <ellipse cx="76" cy="-59" rx="11" ry="8.5" fill="#FFCC00" stroke="none" opacity="0.9"/>
-        <!-- Visor line -->
-        <line x1="66" y1="-56" x2="82" y2="-52" stroke-width="2" stroke="#000" opacity="0.3"/>
-        <!-- Arms to bars -->
-        <line x1="68" y1="-68" x2="77" y2="-56" stroke-width="4"/>
-        <!-- Power leg: 4 o'clock (thigh forward-down, shin to BB) -->
-        <line x1="24" y1="-86" x2="9"  y2="-53" stroke-width="5"/>
-        <line x1="9"  y1="-53" x2="35" y2="-22" stroke-width="4.5"/>
-        <!-- Recovery leg: 10 o'clock (thigh back-up, shin bent) -->
-        <line x1="24" y1="-86" x2="42" y2="-101" stroke-width="5"/>
-        <line x1="42" y1="-101" x2="57" y2="-91" stroke-width="4.5"/>
+      <!-- Mann (hinter der Frau, etwas kleiner) -->
+      <g class="cyclist-back">
+        <image href="imageRadMann.png" x="-10" y="72" width="168" height="134"/>
       </g>
-
-      <!-- ── RIDER A — lead, 100% scale, leg phase A (power at 6 o'clock) ── -->
-      <g transform="translate(168,178) scale(1.0)" stroke="#FFCC00" stroke-linecap="round" stroke-linejoin="round" opacity="1">
-        <!-- Rear wheel -->
-        <circle cx="0"  cy="-30" r="30" stroke-width="4.5" fill="none"/>
-        <line x1="0"  y1="-60" x2="0"  y2="0"    stroke-width="1.4" opacity="0.32"/>
-        <line x1="-30" y1="-30" x2="30" y2="-30" stroke-width="1.4" opacity="0.32"/>
-        <line x1="-21" y1="-51" x2="21" y2="-9"  stroke-width="1.4" opacity="0.32"/>
-        <line x1="21"  y1="-51" x2="-21" y2="-9" stroke-width="1.4" opacity="0.32"/>
-        <circle cx="0" cy="-30" r="4.5" fill="#FFCC00" stroke="none"/>
-        <!-- Front wheel -->
-        <circle cx="76" cy="-30" r="30" stroke-width="4.5" fill="none"/>
-        <line x1="76" y1="-60" x2="76" y2="0"    stroke-width="1.4" opacity="0.32"/>
-        <line x1="46" y1="-30" x2="106" y2="-30" stroke-width="1.4" opacity="0.32"/>
-        <line x1="55" y1="-51" x2="97"  y2="-9"  stroke-width="1.4" opacity="0.32"/>
-        <line x1="97" y1="-51" x2="55"  y2="-9"  stroke-width="1.4" opacity="0.32"/>
-        <circle cx="76" cy="-30" r="4.5" fill="#FFCC00" stroke="none"/>
-        <!-- BB + chainring -->
-        <circle cx="35" cy="-22" r="6" fill="#FFCC00" stroke="none"/>
-        <circle cx="35" cy="-22" r="18" stroke-width="2" opacity="0.28" fill="none"/>
-        <!-- Frame -->
-        <line x1="0"  y1="-30" x2="35" y2="-22" stroke-width="4.5"/>  <!-- chainstay -->
-        <line x1="0"  y1="-30" x2="24" y2="-82" stroke-width="3"/>    <!-- seatstay -->
-        <line x1="35" y1="-22" x2="24" y2="-82" stroke-width="5"/>    <!-- seat tube -->
-        <line x1="24" y1="-82" x2="66" y2="-47" stroke-width="3.5"/>  <!-- top tube -->
-        <line x1="35" y1="-22" x2="66" y2="-47" stroke-width="5"/>    <!-- down tube -->
-        <line x1="66" y1="-47" x2="76" y2="-30" stroke-width="4.5"/> <!-- fork -->
-        <!-- Saddle -->
-        <path d="M13,-87 C18,-93 29,-93 40,-87" stroke-width="5" fill="none"/>
-        <!-- Stem -->
-        <line x1="66" y1="-47" x2="71" y2="-64" stroke-width="4"/>
-        <!-- Drop handlebar -->
-        <path d="M67,-64 C72,-73 83,-73 87,-64 C89,-56 86,-45 80,-44" stroke-width="3.5" fill="none"/>
-        <!-- Rider: torso HORIZONTAL — full sprint -->
-        <line x1="24" y1="-86" x2="68" y2="-68" stroke-width="6"/>
-        <!-- Head — aero helmet, very low over bars -->
-        <ellipse cx="76" cy="-59" rx="11" ry="8.5" fill="#FFCC00" stroke="none" opacity="0.95"/>
-        <line x1="66" y1="-56" x2="82" y2="-52" stroke-width="2" stroke="#000" opacity="0.3"/>
-        <!-- Arms to bars -->
-        <line x1="68" y1="-68" x2="77" y2="-56" stroke-width="4"/>
-        <!-- Power leg: 6 o'clock (fully extended, straight down) -->
-        <line x1="24" y1="-86" x2="12" y2="-50" stroke-width="5"/>
-        <line x1="12" y1="-50" x2="35" y2="-22" stroke-width="4.5"/>
-        <!-- Recovery leg: 12 o'clock (fully up, over BB) -->
-        <line x1="24" y1="-86" x2="40" y2="-103" stroke-width="5"/>
-        <line x1="40" y1="-103" x2="56" y2="-93" stroke-width="4.5"/>
+      <!-- Frau (vorne, volle Größe) -->
+      <g class="cyclist-lead">
+        <image href="imageRadFrau.png" x="138" y="62" width="190" height="152"/>
       </g>
-
     </g><!-- end cyclists-group -->
 
   </svg>
@@ -866,12 +880,35 @@
 
 <!-- ══ Sidebar ══ -->
 <div class="sidebar" id="sidebar">
+
+  <!-- Profil oben -->
   <div class="sidebar-profile">
-    <div class="sidebar-big-avatar" id="sidebar-avatar">?</div>
-    <div class="sidebar-username" id="sidebar-name"></div>
-    <div class="sidebar-device-id" id="sidebar-device"></div>
-  </div>
-  <nav class="sidebar-nav">
+      <div class="sidebar-big-avatar" id="sidebar-avatar">?</div>
+      <div class="sidebar-username" id="sidebar-name"></div>
+      <div class="sidebar-device-row">
+        <div class="sidebar-device-id" id="sidebar-device"></div>
+        <button class="sidebar-edit-btn" id="sidebar-edit-btn" title="Geräte-ID ändern">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="sidebar-device-edit" id="sidebar-device-edit">
+        <input class="sidebar-edit-input" type="text" id="sidebar-device-input" placeholder="Garmin Device ID" autocomplete="off">
+        <div class="sidebar-edit-actions">
+          <button class="sidebar-save-btn" id="sidebar-save-device">Speichern</button>
+          <button class="sidebar-cancel-btn" id="sidebar-cancel-device">Abbrechen</button>
+        </div>
+        <div class="sidebar-edit-msg" id="sidebar-edit-msg"></div>
+      </div>
+    </div>
+
+  <!-- Fahrten-Liste (Mitte, scrollbar) -->
+  <div class="sidebar-rides" id="sidebar-rides"></div>
+
+  <!-- Logout + Wordmark ganz unten -->
+  <div class="sidebar-footer-area">
     <button class="sidebar-item logout" id="sidebar-logout">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
@@ -880,10 +917,9 @@
       </svg>
       Abmelden
     </button>
-  </nav>
-  <div class="sidebar-footer">
     <div class="sidebar-wordmark">ortsschildersprint</div>
   </div>
+
 </div>
 
 <!-- ══ Auth Screen ══ -->
@@ -898,6 +934,17 @@
       <input class="auth-input" type="password" id="login-password" placeholder="Passwort" autocomplete="current-password">
       <button class="btn-primary" id="btn-login">Anmelden</button>
       <div class="auth-switch">Noch kein Account? <a id="to-register">Registrieren</a></div>
+      <div class="auth-switch" style="margin-top:0.4rem"><a id="to-reset">Passwort vergessen?</a></div>
+    </div>
+
+    <!-- Passwort zurücksetzen -->
+    <div id="reset-view" style="display:none">
+      <h2>Passwort zurücksetzen</h2>
+      <div id="reset-error" class="auth-error" style="display:none"></div>
+      <div id="reset-info"  class="auth-info"  style="display:none"></div>
+      <input class="auth-input" type="email" id="reset-email" placeholder="E-Mail" autocomplete="email">
+      <button class="btn-primary" id="btn-reset">Link senden</button>
+      <div class="auth-switch"><a id="to-login-from-reset">Zurück zur Anmeldung</a></div>
     </div>
 
     <!-- Register -->
@@ -961,15 +1008,53 @@
 
   // ── Auth UI ───────────────────────────────────────────────────────────────
 
-  document.getElementById("to-register").addEventListener("click", e => {
-    e.preventDefault();
-    document.getElementById("login-view").style.display = "none";
-    document.getElementById("register-view").style.display = "block";
+  function showView(id) {
+    ["login-view","register-view","reset-view"].forEach(v =>
+      document.getElementById(v).style.display = v === id ? "block" : "none"
+    );
+  }
+
+  document.getElementById("to-register").addEventListener("click", e => { e.preventDefault(); showView("register-view"); });
+  document.getElementById("to-login").addEventListener("click",    e => { e.preventDefault(); showView("login-view"); });
+  document.getElementById("to-reset").addEventListener("click",    e => { e.preventDefault(); showView("reset-view"); });
+  document.getElementById("to-login-from-reset").addEventListener("click", e => { e.preventDefault(); showView("login-view"); });
+
+  document.getElementById("btn-reset").addEventListener("click", async () => {
+    const email  = document.getElementById("reset-email").value.trim();
+    const errEl  = document.getElementById("reset-error");
+    const infoEl = document.getElementById("reset-info");
+    const btn    = document.getElementById("btn-reset");
+    errEl.style.display = "none";
+    infoEl.style.display = "none";
+
+    if (!email) {
+      errEl.textContent = "Bitte E-Mail eingeben";
+      errEl.style.display = "block";
+      return;
+    }
+
+    btn.textContent = "Sende…";
+    btn.disabled = true;
+
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: "https://85tvcgwnjr-jpg.github.io/ortsschildersprint/"
+    });
+
+    btn.textContent = "Link senden";
+    btn.disabled = false;
+
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = "block";
+    } else {
+      infoEl.textContent = "✓ Link gesendet! Bitte E-Mail prüfen";
+      infoEl.style.display = "block";
+      document.getElementById("reset-email").value = "";
+    }
   });
-  document.getElementById("to-login").addEventListener("click", e => {
-    e.preventDefault();
-    document.getElementById("register-view").style.display = "none";
-    document.getElementById("login-view").style.display = "block";
+
+  document.getElementById("reset-email").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("btn-reset").click();
   });
 
   document.getElementById("btn-login").addEventListener("click", async () => {
@@ -1055,14 +1140,127 @@
     hamburgerBtn.classList.remove("is-open");
   }
 
-  hamburgerBtn.addEventListener("click", () => {
-    sidebar.classList.contains("open") ? closeSidebar() : openSidebar();
+  // Sidebar öffnet/schließt per Hover über den Header-Banner
+  let closeTimer = null;
+
+  function scheduleClose() {
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(closeSidebar, 180);
+  }
+  function cancelClose() {
+    clearTimeout(closeTimer);
+  }
+
+  function isInSidebar(node) { return node && (node === sidebar || sidebar.contains(node)); }
+  function isInHeader(node)  { return node && (node === header  || header.contains(node));  }
+
+  header.addEventListener("mouseenter", () => {
+    if (!header.classList.contains("app-mode")) return;
+    cancelClose();
+    openSidebar();
   });
-  sidebarOver.addEventListener("click", closeSidebar);
+  header.addEventListener("mouseleave", (e) => {
+    // Maus wechselt zur Sidebar → nicht schließen
+    if (isInSidebar(e.relatedTarget)) { cancelClose(); return; }
+    scheduleClose();
+  });
+
+  sidebar.addEventListener("mouseenter", cancelClose);
+  sidebar.addEventListener("mouseleave", (e) => {
+    // Maus wechselt zurück zum Header → nicht schließen
+    if (isInHeader(e.relatedTarget)) { cancelClose(); return; }
+    scheduleClose();
+  });
 
   document.getElementById("sidebar-logout").addEventListener("click", () => {
     closeSidebar();
     sb.auth.signOut();
+  });
+
+  // ── Geräte-ID bearbeiten ──────────────────────────────────────────────────
+
+  document.getElementById("sidebar-edit-btn").addEventListener("click", () => {
+    const editArea = document.getElementById("sidebar-device-edit");
+    const input    = document.getElementById("sidebar-device-input");
+    const msgEl    = document.getElementById("sidebar-edit-msg");
+    const current  = document.getElementById("sidebar-device").textContent.replace("Gerät: ", "");
+    input.value = current;
+    msgEl.style.display = "none";
+    editArea.classList.toggle("active");
+    if (editArea.classList.contains("active")) {
+      input.focus();
+      input.select();
+    }
+  });
+
+  document.getElementById("sidebar-cancel-device").addEventListener("click", () => {
+    document.getElementById("sidebar-device-edit").classList.remove("active");
+    document.getElementById("sidebar-edit-msg").style.display = "none";
+  });
+
+  document.getElementById("sidebar-save-device").addEventListener("click", async () => {
+    const newDevice = document.getElementById("sidebar-device-input").value.trim();
+    const msgEl     = document.getElementById("sidebar-edit-msg");
+    const saveBtn   = document.getElementById("sidebar-save-device");
+
+    if (!newDevice) {
+      msgEl.textContent = "Bitte eine Geräte-ID eingeben";
+      msgEl.style.color = "var(--red)";
+      msgEl.style.display = "block";
+      return;
+    }
+
+    saveBtn.textContent = "…";
+    saveBtn.disabled = true;
+    msgEl.style.display = "none";
+
+    try {
+      const { data, error } = await sb.auth.updateUser({
+        data: { device_id: newDevice }
+      });
+      if (error) throw error;
+
+      const displayName = data.user.user_metadata?.display_name || "";
+      const sess = (await sb.auth.getSession()).data.session;
+
+      // Profiles-Tabelle aktualisieren
+      if (displayName && sess) {
+        await fetch(SUPABASE_URL + "/rest/v1/profiles", {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": "Bearer " + sess.access_token,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify({ device_id: newDevice, display_name: displayName, updated_at: new Date().toISOString() })
+        }).catch(() => {});
+      }
+
+      // UI aktualisieren
+      document.getElementById("sidebar-device").textContent = "Gerät: " + newDevice;
+      document.getElementById("sidebar-device-edit").classList.remove("active");
+
+      // Fahrten mit neuer ID neu laden
+      const root = document.getElementById("root");
+      root.className = "loading";
+      root.textContent = "Lade Fahrten…";
+      loadApp(newDevice);
+
+    } catch (e) {
+      msgEl.textContent = "Fehler: " + e.message;
+      msgEl.style.color = "var(--red)";
+      msgEl.style.display = "block";
+    } finally {
+      saveBtn.textContent = "Speichern";
+      saveBtn.disabled = false;
+    }
+  });
+
+  // Enter-Taste im Input = Speichern
+  document.getElementById("sidebar-device-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("sidebar-save-device").click();
+    if (e.key === "Escape") document.getElementById("sidebar-cancel-device").click();
   });
 
   // ── Auth State ────────────────────────────────────────────────────────────
@@ -1250,7 +1448,7 @@
         }
       });
     }
-    return { track, crossings };
+    return { track, crossings, map };
   }
 
   // ── Ranking data (structured, for image export) ───────────────────────────
@@ -1447,127 +1645,122 @@
 
   // ── Main App ──────────────────────────────────────────────────────────────
 
+  let activeLeafletMap = null; // aktive Leaflet-Instanz verfolgen
+  let allRides = [];           // alle Fahrten cachen
+  let activeDeviceId = "";
+
+  const BIKE_SVG = `<img src="imageBike.png" style="width:110px;height:auto;opacity:0.25;margin-bottom:.8rem;display:block;margin-left:auto;margin-right:auto">`;
+
   async function loadApp(myDeviceId) {
+    activeDeviceId = myDeviceId;
     const root = document.getElementById("root");
+    root.className = '';
 
     try {
       const url = myDeviceId
         ? `/rest/v1/rides?device_id=eq.${encodeURIComponent(myDeviceId)}&select=id,device_id,started_at,ended_at&order=started_at.desc&limit=50`
         : `/rest/v1/rides?select=id,device_id,started_at,ended_at&order=started_at.desc&limit=50`;
 
-      const rides = await fetchJSON(url);
+      allRides = await fetchJSON(url);
 
-      if (rides.length === 0) {
-        root.className = '';
-        root.innerHTML = `<div class="empty-state">
-          <svg width="96" height="60" viewBox="0 0 240 150" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="8.5" style="opacity:.2;margin-bottom:.8rem">
-            <circle cx="52"  cy="94" r="44"/>
-            <circle cx="188" cy="94" r="44"/>
-            <!-- Outer frame as one closed path: seat stay + chain stay + down tube + head tube + top tube -->
-            <path d="M86,50 L52,94 L110,104 L167,66 L163,45 Z"/>
-            <!-- Seat tube (internal diagonal — endpoints land on closed-path vertices, no blobs) -->
-            <line x1="110" y1="104" x2="86" y2="50"/>
-            <!-- Fork -->
-            <line x1="167" y1="66" x2="188" y2="94"/>
-            <!-- BB dot -->
-            <circle cx="110" cy="104" r="7" fill="currentColor" stroke="none"/>
-            <!-- Seat post -->
-            <line x1="86" y1="50" x2="86" y2="35"/>
-            <!-- Saddle -->
-            <line x1="71" y1="35" x2="101" y2="35"/>
-            <!-- Stem -->
-            <line x1="163" y1="45" x2="175" y2="30"/>
-            <!-- Drop handlebar -->
-            <path d="M172,30 C177,20 193,21 196,31 C198,41 194,56 186,58" fill="none"/>
-          </svg>
+      if (allRides.length === 0) {
+        root.innerHTML = `<div class="empty-state">${BIKE_SVG}
           <strong>Noch keine Fahrten</strong>
           Beende eine Aktivität auf dem Garmin und sie erscheint hier
         </div>`;
+        document.getElementById("sidebar-rides").innerHTML = '';
         return;
       }
 
-      root.className = '';
-      root.innerHTML = `<div class="section-label">
-        <svg width="19" height="12" viewBox="0 0 240 150" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="8.5" style="vertical-align:-1px;margin-right:6px;opacity:.6">
-          <circle cx="52"  cy="94" r="44"/>
-          <circle cx="188" cy="94" r="44"/>
-          <path d="M86,50 L52,94 L110,104 L167,66 L163,45 Z"/>
-          <line x1="110" y1="104" x2="86" y2="50"/>
-          <line x1="167" y1="66" x2="188" y2="94"/>
-          <circle cx="110" cy="104" r="7" fill="currentColor" stroke="none"/>
-          <line x1="86" y1="50" x2="86" y2="35"/>
-          <line x1="71" y1="35" x2="101" y2="35"/>
-          <line x1="163" y1="45" x2="175" y2="30"/>
-          <path d="M172,30 C177,20 193,21 196,31 C198,41 194,56 186,58" fill="none"/>
-        </svg>
-        Deine Fahrten
-      </div>`;
-      const list = document.createElement("div");
-      list.className = "ride-list";
+      // Neueste Fahrt auf dem Hauptscreen anzeigen
+      await renderFeaturedRide(allRides[0]);
+      // Restliche Fahrten in der Sidebar
+      renderSidebarRides(allRides[0].id);
 
-      for (const ride of rides) {
-        const dur  = ride.ended_at - ride.started_at;
-        const card = document.createElement("div");
-        card.className = "ride-card";
-        card.innerHTML = `
-          <div class="ride-header">
-            <div>
-              <div class="ride-title">${fmtTime(ride.started_at)}</div>
-              <div class="ride-meta">${fmtDuration(dur)}</div>
-            </div>
-            <div class="toggle-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </div>
-          </div>
-          <div class="ride-body">
-            <div class="map-container" id="map-${ride.id}"></div>
-            <div class="ride-actions">
-              <button class="btn btn-image">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
-                Share
-              </button>
-              <button class="btn btn-delete">Löschen</button>
-            </div>
-          </div>`;
-
-        const header = card.querySelector(".ride-header");
-        const mapEl  = card.querySelector(".map-container");
-        const btnImg = card.querySelector(".btn-image");
-        const btnDel = card.querySelector(".btn-delete");
-        let loaded = false;
-
-        header.addEventListener("click", async () => {
-          card.classList.toggle("open");
-          if (card.classList.contains("open") && !loaded) {
-            loaded = true;
-            try {
-              const { track, crossings } = await buildMap(ride, mapEl, myDeviceId);
-              card._exportData = { ride, track, crossings };
-            } catch(e) {
-              mapEl.innerHTML = `<div class="error">Fehler: ${e.message}</div>`;
-            }
-          }
-        });
-
-        btnImg.addEventListener("click", () => exportImage(card, btnImg, myDeviceId));
-        btnDel.addEventListener("click", async () => {
-          if (!confirm("Fahrt löschen?")) return;
-          await fetch(SUPABASE_URL + `/rest/v1/rides?id=eq.${ride.id}`, {
-            method: "DELETE",
-            headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
-          });
-          card.remove();
-        });
-
-        list.appendChild(card);
-      }
-
-      root.appendChild(list);
     } catch(e) {
       root.innerHTML = `<div class="error">Verbindungsfehler: ${e.message}</div>`;
     }
+  }
+
+  async function renderFeaturedRide(ride) {
+    const root = document.getElementById("root");
+
+    // Alte Leaflet-Karte zerstören
+    if (activeLeafletMap) { activeLeafletMap.remove(); activeLeafletMap = null; }
+
+    const dur = ride.ended_at - ride.started_at;
+    root.innerHTML = `
+      <div class="featured-ride" id="featured-ride">
+        <div class="featured-info">
+          <div>
+            <div class="featured-title">${fmtTime(ride.started_at)}</div>
+            <div class="featured-meta">${fmtDuration(dur)}</div>
+          </div>
+          <button class="btn btn-delete" id="featured-delete">Löschen</button>
+        </div>
+        <div class="map-container" id="map-featured"></div>
+        <div class="ride-actions">
+          <button class="btn btn-image" id="featured-share">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+            Share
+          </button>
+        </div>
+      </div>`;
+
+    // Karte sofort laden
+    const mapEl = document.getElementById("map-featured");
+    const featuredEl = document.getElementById("featured-ride");
+    try {
+      const { track, crossings, map } = await buildMap(ride, mapEl, activeDeviceId);
+      activeLeafletMap = map;
+      featuredEl._exportData = { ride, track, crossings };
+    } catch(e) {
+      mapEl.innerHTML = `<div class="error" style="padding:1rem;color:var(--red);font-size:.85rem">Karte konnte nicht geladen werden</div>`;
+    }
+
+    document.getElementById("featured-share").addEventListener("click", () =>
+      exportImage(featuredEl, document.getElementById("featured-share"), activeDeviceId)
+    );
+
+    document.getElementById("featured-delete").addEventListener("click", async () => {
+      if (!confirm("Fahrt löschen?")) return;
+      await fetch(SUPABASE_URL + `/rest/v1/rides?id=eq.${ride.id}`, {
+        method: "DELETE",
+        headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+      });
+      allRides = allRides.filter(r => r.id !== ride.id);
+      if (allRides.length === 0) {
+        loadApp(activeDeviceId);
+      } else {
+        await renderFeaturedRide(allRides[0]);
+        renderSidebarRides(allRides[0].id);
+      }
+    });
+  }
+
+  function renderSidebarRides(activeFeaturedId) {
+    const sidebarRides = document.getElementById("sidebar-rides");
+    const others = allRides.filter(r => r.id !== activeFeaturedId);
+
+    if (others.length === 0) {
+      sidebarRides.innerHTML = `<div class="sidebar-rides-empty">Keine weiteren Fahrten</div>`;
+      return;
+    }
+
+    sidebarRides.innerHTML = '';
+    others.forEach(ride => {
+      const dur  = ride.ended_at - ride.started_at;
+      const item = document.createElement("div");
+      item.className = "sidebar-ride-item";
+      item.innerHTML = `<div class="sidebar-ride-date">${fmtTime(ride.started_at)}</div>`;
+      item.addEventListener("click", async () => {
+        document.querySelectorAll(".sidebar-ride-item").forEach(el => el.classList.remove("active"));
+        item.classList.add("active");
+        await renderFeaturedRide(ride);
+        renderSidebarRides(ride.id);
+      });
+      sidebarRides.appendChild(item);
+    });
   }
 </script>
 </body>
