@@ -55,7 +55,6 @@
       padding: 0;
       overflow: hidden;
       position: relative;
-      z-index: 1000;
       cursor: default;
     }
 
@@ -167,7 +166,7 @@
       pointer-events: none; /* niemals Mausevents abfangen — verhindert Flackern */
       transition: opacity 0.35s;
     }
-    .sidebar-overlay.open { opacity: 1; pointer-events: auto; }
+    .sidebar-overlay.open { opacity: 1; }
 
     .sidebar {
       position: fixed;
@@ -1172,9 +1171,6 @@
     if (isInHeader(e.relatedTarget)) { cancelClose(); return; }
     scheduleClose();
   });
-
-  // Klick auf Overlay (= außerhalb Sidebar + Header) schließt sofort
-  sidebarOver.addEventListener("click", () => { clearTimeout(closeTimer); closeSidebar(); });
 
   document.getElementById("sidebar-logout").addEventListener("click", () => {
     closeSidebar();
