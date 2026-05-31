@@ -795,6 +795,10 @@
       <!-- Filter: Weißer Hintergrund → Transparent, dunkle Linien → Weiß -->
     </defs>
 
+    <!-- scale(1, 175/210) compresses content vertically to fit the 175-unit viewBox
+         while keeping full 900-unit width — no horizontal distortion -->
+    <g transform="scale(1, 0.8333)">
+
     <!-- Background -->
     <rect x="0" y="0" width="900" height="210" fill="url(#sky-g)"/>
 
@@ -867,6 +871,8 @@
         <image href="imageRadFrau.png" x="138" y="62" width="190" height="152"/>
       </g>
     </g><!-- end cyclists-group -->
+
+  </g><!-- end scale transform -->
 
   </svg>
 
