@@ -354,7 +354,10 @@
 
     const { error } = await sb.auth.signUp({
       email, password,
-      options: { data: { display_name: name, device_id: deviceId } }
+      options: {
+        data: { display_name: name, device_id: deviceId },
+        emailRedirectTo: "https://85tvcgwnjr-jpg.github.io/ortsschilder/"
+      }
     });
 
     if (error) {
