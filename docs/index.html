@@ -332,7 +332,12 @@
     });
 
     if (error) {
-      errEl.textContent = error.message;
+      const msg = error.message.toLowerCase();
+      errEl.textContent = (msg.includes("rate") || msg.includes("limit"))
+        ? "Versuche es später erneut."
+        : (msg.includes("already") || msg.includes("registered") || msg.includes("existing"))
+        ? "Ein Konto mit dieser E-Mail-Adresse existiert bereits."
+        : error.message;
       errEl.style.display = "block";
     } else {
       infoEl.textContent = "✓ Registriert! Bitte E-Mail bestätigen.";
