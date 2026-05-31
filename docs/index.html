@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ortsschilder Sprint</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #f0f0f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1a1a;
+      border-bottom: 2px solid #00c853;
+      padding: 1.2rem 1.5rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; color: #00c853; }
+
+    .container { max-width: 700px; margin: 0 auto; padding: 1.5rem; }
+
+    .ride-list { display: flex; flex-direction: column; gap: 1rem; }
+
+    .ride-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .ride-header {
+      padding: 1rem 1.2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .ride-card:hover .ride-header { border-color: #00c853; }
+    .ride-title { font-size: 1rem; font-weight: 600; }
+    .ride-meta  { font-size: 0.85rem; color: #888; margin-top: 0.2rem; }
+    .toggle-icon { color: #555; transition: transform 0.2s; }
+    .ride-card.open .toggle-icon { transform: rotate(180deg); color: #00c853; }
+
+    .ride-body { display: none; border-top: 1px solid #2a2a2a; }
+    .ride-card.open .ride-body { display: block; }
+
+    .map-container { height: 320px; }
+
+    .ride-actions {
+      padding: 0.75rem 1.2rem;
+      border-top: 1px solid #2a2a2a;
+      display: flex;
+      gap: 0.75rem;
+    }
+    .btn { padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; border: none; }
+    .btn-export { background: #00c853; color: #000; font-weight: 600; }
+    .btn-delete { background: #2a2a2a; color: #ff5252; }
+
+    .loading { text-align: center; padding: 3rem; color: #555; }
+    .error   { color: #ff5252; text-align: center; padding: 2rem; }
+
+    /* Leaflet popup styling */
+    .leaflet-popup-content-wrapper {
+      background: #1e1e1e;
+      color: #f0f0f0;
+      border: 1px solid #333;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    }
+    .leaflet-popup-tip { background: #1e1e1e; }
+    .leaflet-popup-content { margin: 10px 14px; min-width: 180px; }
+
+    .popup-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #00c853;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 0.4rem;
+    }
+    .popup-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.25rem 0;
+      font-size: 0.8rem;
+      gap: 1rem;
+    }
+    .popup-rank { font-weight: 700; width: 1.4rem; }
+    .popup-rank.gold   { color: #ffd700; }
+    .popup-rank.silver { color: #c0c0c0; }
+    .popup-rank.bronze { color: #cd7f32; }
+    .popup-dev  { color: #ccc; flex: 1; font-family: monospace; }
+    .popup-dev.me { color: #00c853; font-weight: 600; }
+    .popup-delta { color: #888; text-align: right; }
+    .popup-loading { color: #555; font-size: 0.8rem; padding: 0.3rem 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🚴 Ortsschilder Sprint — Fahrten</h1>
+</header>
+
+<div class="container">
+  <div id="root" class="loading">Lade Fahrten…</div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://slcprtkqkqwgstnyfpus.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_xeoJUHq3BEvCJbHdvgjQsg_yHyvhXUJ";
+  const MY_DEVICE_ID = localStorage.getItem("my_device_id") || "";
+
+  async function fetchJSON(path) {
+    const res = await fetch(SUPABASE_URL + path, {
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+    });
+    if (!res.ok) throw new Error(res.status + " " + res.statusText);
+    return res.json();
+  }
+
+  function fmtTime(ts) {
+    return new Date(ts * 1000).toLocaleString("de-DE",
+      { weekday:"short", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+  }
+  function fmtDuration(sec) {
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+    return h > 0 ? `${h}h ${m}min` : `${m} min`;
+  }
+  function shortId(id) { return id ? "…" + id.slice(-6) : "?"; }
+
+  // ── Ranking popup ─────────────────────────────────────────────────────────
+
+  async function buildRankingHtml(signId, crossingTs) {
+    const tFrom = crossingTs - 30;
+    const tTo   = crossingTs + 30;
+    const rows  = await fetchJSON(
+      `/rest/v1/crossings?sign_id=eq.${encodeURIComponent(signId)}` +
+      `&timestamp=gte.${tFrom}&timestamp=lte.${tTo}` +
+      `&order=timestamp.asc&limit=50&select=device_id,timestamp`
+    );
+
+    // Best per device
+    const best = {};
+    for (const r of rows) {
+      if (!best[r.device_id] || r.timestamp < best[r.device_id])
+        best[r.device_id] = r.timestamp;
+    }
+
+    // Find leader → filter to leader + 30s
+    let leaderTs = crossingTs;
+    for (const ts of Object.values(best)) { if (ts < leaderTs) leaderTs = ts; }
+    const cutoff = leaderTs + 30;
+
+    const group = Object.entries(best)
+      .filter(([, ts]) => ts <= cutoff)
+      .sort(([, a], [, b]) => a - b);
+
+    if (group.length === 0) return '<div class="popup-loading">Keine Daten</div>';
+
+    const medals = ["gold","silver","bronze"];
+    return group.map(([dev, ts], i) => {
+      const delta = (ts - leaderTs).toFixed(1);
+      const isMe  = MY_DEVICE_ID && dev === MY_DEVICE_ID;
+      return `<div class="popup-row">
+        <div class="popup-rank ${medals[i]||''}">${i+1}.</div>
+        <div class="popup-dev ${isMe?"me":""}">${isMe ? "Du" : shortId(dev)}</div>
+        <div class="popup-delta">${i===0 ? "Führend" : "+"+delta+"s"}</div>
+      </div>`;
+    }).join("");
+  }
+
+  // ── Road matching via OSRM ───────────────────────────────────────────────
+
+  async function matchToRoads(track) {
+    // Subsample to max 99 points (OSRM public server limit)
+    const MAX = 99;
+    let pts = track;
+    if (pts.length > MAX) {
+      const out = [];
+      for (let i = 0; i < MAX; i++) out.push(pts[Math.floor(i * pts.length / MAX)]);
+      out.push(pts[pts.length - 1]);
+      pts = out;
+    }
+    const coords = pts.map(p => `${p[1]},${p[0]}`).join(';'); // OSRM: lon,lat
+    const res = await fetch(
+      `https://router.project-osrm.org/route/v1/cycling/${coords}` +
+      `?overview=full&geometries=geojson`
+    );
+    if (!res.ok) throw new Error('OSRM ' + res.status);
+    const data = await res.json();
+    if (data.code !== 'Ok' || !data.routes?.length) throw new Error('no route');
+    return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+  }
+
+  // ── Map build ─────────────────────────────────────────────────────────────
+
+  async function buildMap(ride, mapEl) {
+    const [rideData, crossings] = await Promise.all([
+      fetchJSON(`/rest/v1/rides?id=eq.${ride.id}&select=gps_track`),
+      fetchJSON(
+        `/rest/v1/crossings?device_id=eq.${encodeURIComponent(ride.device_id)}` +
+        `&timestamp=gte.${ride.started_at}&timestamp=lte.${ride.ended_at}` +
+        `&order=timestamp.asc&select=sign_id,sign_name,timestamp`
+      )
+    ]);
+
+    const track = rideData[0]?.gps_track || [];
+    const map   = L.map(mapEl);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap", maxZoom: 19
+    }).addTo(map);
+
+    if (track.length >= 2) {
+      // Try road-matched route, fall back to straight lines
+      let routePoints = track.map(p => [p[0], p[1]]);
+      try { routePoints = await matchToRoads(track); } catch(e) {}
+
+      const line = L.polyline(routePoints, { color: "#00c853", weight: 3 }).addTo(map);
+      L.circleMarker(routePoints[0],                   { radius:6, color:"#00c853", fillColor:"#00c853", fillOpacity:1 }).bindPopup("Start").addTo(map);
+      L.circleMarker(routePoints[routePoints.length-1], { radius:6, color:"#ff5252", fillColor:"#ff5252", fillOpacity:1 }).bindPopup("Ende").addTo(map);
+      map.fitBounds(line.getBounds(), { padding:[20,20] });
+    }
+
+    // Sign markers — use original track timestamps to find position
+    const signIcon = L.divIcon({
+      html: `<div style="background:#ff9800;border-radius:50%;width:14px;height:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>`,
+      className: "", iconAnchor: [7, 7]
+    });
+
+    for (const c of crossings) {
+      let nearest = null, minDiff = Infinity;
+      for (const p of track) {
+        const d = Math.abs(p[2] - c.timestamp);
+        if (d < minDiff) { minDiff = d; nearest = p; }
+      }
+      if (!nearest) continue;
+
+      const marker = L.marker([nearest[0], nearest[1]], { icon: signIcon }).addTo(map);
+      marker.bindPopup(
+        `<div class="popup-title">${c.sign_name}</div><div class="popup-loading">Lade Rangliste…</div>`,
+        { maxWidth: 240 }
+      );
+      marker.on("popupopen", async () => {
+        try {
+          const html = await buildRankingHtml(c.sign_id, c.timestamp);
+          marker.getPopup().setContent(`<div class="popup-title">${c.sign_name}</div>` + html);
+        } catch(e) {
+          marker.getPopup().setContent(`<div class="popup-title">${c.sign_name}</div><div class="popup-loading" style="color:#ff5252">Fehler</div>`);
+        }
+      });
+    }
+
+    return { track, crossings };
+  }
+
+  // ── Export ────────────────────────────────────────────────────────────────
+
+  async function exportRide(card, btn) {
+    const d = card._exportData;
+    if (!d) { alert("Öffne die Fahrt zuerst."); return; }
+
+    btn.textContent = "Lade…";
+    btn.disabled = true;
+
+    // Pre-fetch road-matched route + rankings in parallel
+    const [routePoints, rankingsHtml] = await Promise.all([
+      matchToRoads(d.track).catch(() => d.track.map(p => [p[0], p[1]])),
+      Promise.all(d.crossings.map(c => buildRankingHtml(c.sign_id, c.timestamp).catch(() => "")))
+    ]);
+
+    btn.textContent = "Export";
+    btn.disabled = false;
+
+    const dur  = d.ride.ended_at - d.ride.started_at;
+    const date = new Date(d.ride.started_at * 1000).toLocaleString("de-DE");
+
+    const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ortsschilder Sprint – ${date}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;background:#0f0f0f;color:#f0f0f0}
+header{background:#1a1a1a;border-bottom:2px solid #00c853;padding:1.2rem 1.5rem}
+h1{color:#00c853;font-size:1.3rem}.sub{color:#888;font-size:.85rem;margin-top:.2rem}
+#map{height:100vh}
+.leaflet-popup-content-wrapper{background:#1e1e1e;color:#f0f0f0;border:1px solid #333;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.6)}
+.leaflet-popup-tip{background:#1e1e1e}
+.leaflet-popup-content{margin:10px 14px;min-width:180px}
+.popup-title{font-weight:700;font-size:.95rem;color:#00c853;margin-bottom:.5rem;border-bottom:1px solid #333;padding-bottom:.4rem}
+.popup-row{display:flex;justify-content:space-between;align-items:center;padding:.25rem 0;font-size:.8rem;gap:1rem}
+.popup-rank{font-weight:700;width:1.4rem}
+.popup-rank.gold{color:#ffd700}.popup-rank.silver{color:#c0c0c0}.popup-rank.bronze{color:#cd7f32}
+.popup-dev{color:#ccc;flex:1;font-family:monospace}
+.popup-delta{color:#888;text-align:right}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const routePoints=${JSON.stringify(routePoints)};
+const track=${JSON.stringify(d.track)};
+const crossings=${JSON.stringify(d.crossings)};
+const rankings=${JSON.stringify(rankingsHtml)};
+const map=L.map("map");
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:19}).addTo(map);
+if(routePoints.length>=2){
+  const line=L.polyline(routePoints,{color:"#00c853",weight:3}).addTo(map);
+  L.circleMarker(routePoints[0],{radius:6,color:"#00c853",fillColor:"#00c853",fillOpacity:1}).bindPopup("Start").addTo(map);
+  L.circleMarker(routePoints[routePoints.length-1],{radius:6,color:"#ff5252",fillColor:"#ff5252",fillOpacity:1}).bindPopup("Ende").addTo(map);
+  map.fitBounds(line.getBounds(),{padding:[20,20]});
+  const icon=L.divIcon({html:'<div style="background:#ff9800;border-radius:50%;width:14px;height:14px;border:2px solid #fff"></div>',className:"",iconAnchor:[7,7]});
+  crossings.forEach((c,i)=>{
+    let near=null,md=Infinity;
+    for(const p of track){const dd=Math.abs(p[2]-c.timestamp);if(dd<md){md=dd;near=p;}}
+    if(near)L.marker([near[0],near[1]],{icon})
+      .bindPopup('<div class="popup-title">'+c.sign_name+'<\/div>'+(rankings[i]||""),{maxWidth:240})
+      .addTo(map);
+  });
+}
+<\/script>
+</body></html>`;
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([html], {type:"text/html"}));
+    a.download = `ortsschilder-${d.ride.started_at}.html`;
+    a.click();
+  }
+
+  // ── Main ──────────────────────────────────────────────────────────────────
+
+  async function main() {
+    const root = document.getElementById("root");
+
+    // Auto-cleanup rides older than 7 days
+    const cutoff = Math.floor(Date.now() / 1000) - 7 * 86400;
+    fetch(SUPABASE_URL + `/rest/v1/rides?started_at=lt.${cutoff}`, {
+      method: "DELETE",
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+    }).catch(() => {});
+
+    try {
+      const rides = await fetchJSON(
+        "/rest/v1/rides?select=id,device_id,started_at,ended_at&order=started_at.desc&limit=50"
+      );
+
+      if (rides.length === 0) {
+        root.innerHTML = '<div class="loading">Noch keine Fahrten — beende eine Aktivität auf dem Garmin.</div>';
+        return;
+      }
+
+      root.innerHTML = "";
+      const list = document.createElement("div");
+      list.className = "ride-list";
+
+      for (const ride of rides) {
+        const dur  = ride.ended_at - ride.started_at;
+        const isMe = MY_DEVICE_ID && ride.device_id === MY_DEVICE_ID;
+
+        const card = document.createElement("div");
+        card.className = "ride-card";
+        card.innerHTML = `
+          <div class="ride-header">
+            <div>
+              <div class="ride-title">${fmtTime(ride.started_at)}</div>
+              <div class="ride-meta">${fmtDuration(dur)} · ${isMe ? "Du" : shortId(ride.device_id)}</div>
+            </div>
+            <div class="toggle-icon">▼</div>
+          </div>
+          <div class="ride-body">
+            <div class="map-container" id="map-${ride.id}"></div>
+            <div class="ride-actions">
+              <button class="btn btn-export">Export</button>
+              <button class="btn btn-delete">Löschen</button>
+            </div>
+          </div>`;
+
+        const header  = card.querySelector(".ride-header");
+        const mapEl   = card.querySelector(".map-container");
+        const btnExp  = card.querySelector(".btn-export");
+        const btnDel  = card.querySelector(".btn-delete");
+        let loaded = false;
+
+        header.addEventListener("click", async () => {
+          card.classList.toggle("open");
+          if (card.classList.contains("open") && !loaded) {
+            loaded = true;
+            try {
+              const { track, crossings } = await buildMap(ride, mapEl);
+              card._exportData = { ride, track, crossings };
+            } catch(e) {
+              mapEl.innerHTML = `<div class="error">Fehler: ${e.message}</div>`;
+            }
+          }
+        });
+
+        btnExp.addEventListener("click", () => exportRide(card, btnExp));
+        btnDel.addEventListener("click", async () => {
+          if (!confirm("Fahrt löschen?")) return;
+          await fetch(SUPABASE_URL + `/rest/v1/rides?id=eq.${ride.id}`, {
+            method: "DELETE",
+            headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+          });
+          card.remove();
+        });
+
+        list.appendChild(card);
+      }
+
+      root.appendChild(list);
+    } catch(e) {
+      root.innerHTML = `<div class="error">Verbindungsfehler: ${e.message}</div>`;
+    }
+  }
+
+  main();
+</script>
+</body>
+</html>

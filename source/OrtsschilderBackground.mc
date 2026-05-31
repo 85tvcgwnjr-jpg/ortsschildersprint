@@ -274,6 +274,9 @@ class OrtsschilderBackground extends System.ServiceDelegate {
     // Supabase returns a flat JSON array: [{id,name,lat,lon}, ...]
     // No two-pass parse needed — the import script already resolved names.
     public function onSignsResponse(code as Number, data as Dictionary or String or Null) as Void {
+        // Debug: store response code so DataField can show it
+        Storage.setValue("bg_signs_code", code);
+
         if (code == 200) {
             var obj = data as Lang.Object?;
             if (obj instanceof Array) {
@@ -299,10 +302,16 @@ class OrtsschilderBackground extends System.ServiceDelegate {
                     } as Dictionary);
                 }
 
+                // Debug: store how many signs were parsed
+                Storage.setValue("bg_signs_count", signList.size());
+
                 if (signList.size() > 0) {
                     Storage.setValue(SK_SIGNS, signList);
                     Storage.setValue("signs_ts", Time.now().value());
                 }
+            } else {
+                // data was not an Array — unexpected format
+                Storage.setValue("bg_signs_count", -1);
             }
         }
         Background.exit(null);

@@ -3,6 +3,7 @@ import Toybox.Application.Storage;
 import Toybox.Background;
 import Toybox.Graphics;
 import Toybox.Lang;
+import Toybox.Math;
 import Toybox.System;
 import Toybox.Time;
 import Toybox.WatchUi;
@@ -64,6 +65,10 @@ class OrtsschilderField extends WatchUi.DataField {
 
     // Crossing state
     private var _lastCrossedName as String = "";
+
+    // Direction arrow
+    private var _bearingToSign as Float? = null;  // absolute bearing to sign (radians, 0=N)
+    private var _heading       as Float? = null;  // current device heading (radians, 0=N)
 
     // GPS track recording
     private var _trackPoints   as Array  = [] as Array;
@@ -173,6 +178,13 @@ class OrtsschilderField extends WatchUi.DataField {
         var lat    = (coords[0] as Numeric).toFloat();
         var lon    = (coords[1] as Numeric).toFloat();
 
+        // Current heading — only valid when actually moving (>= ~3 km/h = 0.8 m/s).
+        // Below that the GPS heading is stale/unreliable, so we hide the arrow.
+        var spd = info.currentSpeed;
+        var moving = (spd instanceof Float) && ((spd as Float) >= 1.39f); // >= 5 km/h
+        var hdg = info.currentHeading;
+        _heading = (moving && hdg instanceof Float) ? (hdg as Float) : null;
+
         // First GPS fix → store position + trigger Background in 5 s
         if (!_gpsTriggered) {
             _gpsTriggered  = true;
@@ -225,8 +237,6 @@ class OrtsschilderField extends WatchUi.DataField {
 
         if (dist < SPRINT_M) {
             _state = ST_SPRINT;
-        } else if (dist < APPROACH_M) {
-            _state = ST_APPROACH;
         } else {
             _state = ST_IDLE;
         }
@@ -378,9 +388,21 @@ class OrtsschilderField extends WatchUi.DataField {
         if (bestDist < MAX_SIGN_M) {
             _nearest     = bestSign;
             _nearestDist = bestDist;
+            // Bearing to nearest sign
+            var bs = bestSign as Dictionary;
+            var bLat = bs.get("lat");
+            var bLon = bs.get("lon");
+            if (bLat != null && bLon != null) {
+                _bearingToSign = _calcBearing(
+                    lat, lon,
+                    (bLat instanceof Float) ? (bLat as Float) : (bLat as Number).toFloat(),
+                    (bLon instanceof Float) ? (bLon as Float) : (bLon as Number).toFloat()
+                );
+            }
         } else {
-            _nearest     = null;
-            _nearestDist = null;
+            _nearest       = null;
+            _nearestDist   = null;
+            _bearingToSign = null;
         }
     }
 
@@ -463,7 +485,19 @@ class OrtsschilderField extends WatchUi.DataField {
             if (bgTs instanceof Number) {
                 var age = Time.now().value() - (bgTs as Number);
                 line1 = "BG lief vor " + age.toString() + "s";
-                line2 = (bgFetch instanceof Number) ? "Anfrage gesendet" : "kein GPS";
+                if (bgFetch instanceof Number) {
+                    var sigCode  = Storage.getValue("bg_signs_code");
+                    var sigCount = Storage.getValue("bg_signs_count");
+                    if (sigCode instanceof Number) {
+                        line2 = "HTTP " + (sigCode as Number).toString() +
+                                " cnt=" + ((sigCount instanceof Number)
+                                           ? (sigCount as Number).toString() : "?");
+                    } else {
+                        line2 = "Anfrage gesendet";
+                    }
+                } else {
+                    line2 = "kein GPS";
+                }
             } else {
                 line1 = "BG startet in ~5 min";
                 line2 = "Handy verbinden!";
@@ -476,8 +510,18 @@ class OrtsschilderField extends WatchUi.DataField {
         var name    = (sign != null) ? sign.get("name").toString() : "-";
         var dist    = _nearestDist;
         var distStr = (dist != null) ? _fmtDist(dist as Float) : "-";
-        _text(dc, cx, h / 3,     Graphics.FONT_SMALL, name,    fg, bg);
+        _drawOrtsschildSign(dc, cx, h / 3, name, "", 0);
+        _drawDirectionArrow(dc, cx, h / 2, fg);
         _text(dc, cx, h * 2 / 3, Graphics.FONT_LARGE, distStr, fg, bg);
+    }
+
+    private function _drawDirectionArrow(dc as Graphics.Dc, cx as Number,
+                                          cy as Number, fg as Number) as Void {
+        var bearing = _bearingToSign;
+        var hdg = _heading;
+        if (bearing == null || hdg == null) { return; }
+        var relAngle = ((bearing as Float) - (hdg as Float)).toFloat();
+        _drawArrow(dc, cx, cy, relAngle, fg);
     }
 
     private function _drawDistance(dc as Graphics.Dc, w as Number, h as Number, cx as Number,
@@ -486,66 +530,110 @@ class OrtsschilderField extends WatchUi.DataField {
         var name    = (sign != null) ? sign.get("name").toString() : "-";
         var dist    = _nearestDist;
         var distStr = (dist != null) ? _fmtDist(dist as Float) : "-";
-        _text(dc, cx, h / 3,     Graphics.FONT_SMALL, name,    fg,     bg);
+        _drawOrtsschildSign(dc, cx, h / 3, name, "", 0);
+        _drawDirectionArrow(dc, cx, h / 2, accent);
         _text(dc, cx, h * 2 / 3, Graphics.FONT_LARGE, distStr, accent, bg);
     }
 
     private function _drawResult(dc as Graphics.Dc, w as Number, h as Number,
                                   cx as Number, fg as Number, bg as Number) as Void {
-        var sign = _nearest;
-        var name = (sign != null) ? sign.get("name").toString() : "Ziel";
-        _text(dc, cx, h / 8, Graphics.FONT_TINY, name, Graphics.COLOR_GREEN, bg);
+        // Determine position first so we know WON/LOST for the sign
+        var pos      = 0;
+        var deltaS   = 0.0f;
+        var hasRank  = false;
 
-        var myTs = _myTs;
-        if (myTs == null) {
-            _text(dc, cx, h * 2 / 5, Graphics.FONT_TINY, "Jemand da!", fg, bg);
-            _drawServerRank(dc, h, cx, fg, bg);
-            return;
-        }
-
-        var myTsNum = myTs as Number;
-        var ldrTs   = _leaderTs;
-
-        if (ldrTs == null || myTsNum <= (ldrTs as Number)) {
-            _text(dc, cx, h * 2 / 5, Graphics.FONT_MEDIUM, "1. Platz!", Graphics.COLOR_GREEN, bg);
-            if (ldrTs != null && (ldrTs as Number) > myTsNum) {
-                var gapS = ((ldrTs as Number) - myTsNum).toFloat();
-                _text(dc, cx, h * 3 / 5, Graphics.FONT_TINY,
-                      "+" + gapS.format("%.1f") + "s dahinter", fg, bg);
-            } else {
-                _text(dc, cx, h * 3 / 5, Graphics.FONT_TINY,
-                      "Warte auf Gruppe...", Graphics.COLOR_DK_GRAY, bg);
-            }
+        if (_rankStatus == RS_DONE && _rankPos > 0) {
+            pos     = _rankPos;
+            deltaS  = _rankDelta;
+            hasRank = true;
         } else {
-            var deltaS = (myTsNum - (ldrTs as Number)).toFloat();
-            _text(dc, cx, h * 2 / 5, Graphics.FONT_MEDIUM,
-                  "+" + deltaS.format("%.1f") + "s", Graphics.COLOR_YELLOW, bg);
-            _text(dc, cx, h * 3 / 5, Graphics.FONT_TINY, "hinter Fuehrendem", fg, bg);
+            // ANT+ local fallback while server is loading
+            var myTs  = _myTs;
+            var ldrTs = _leaderTs;
+            if (myTs instanceof Number && ldrTs instanceof Number) {
+                deltaS  = ((myTs as Number) - (ldrTs as Number)).toFloat();
+                hasRank = true;
+            }
         }
 
-        _drawServerRank(dc, h, cx, fg, bg);
+        // Ortsschild with WON/LOST — show sign regardless of rank availability
+        var sign      = _nearest;
+        var name      = (sign != null) ? sign.get("name").toString() : "Ziel";
+        var wonStr    = hasRank ? (pos == 1 ? "WON" : "LOST") : "";
+        var wonColor  = (pos == 1) ? Graphics.COLOR_GREEN : Graphics.COLOR_RED;
+        _drawOrtsschildSign(dc, cx, h / 3, name, wonStr, wonColor);
+
+        if (!hasRank) { return; } // still waiting — sign alone is enough
+
+        // Ordinal: 1st / 2nd / 3rd / 4th …
+        var suffix = "th";
+        if      (pos == 1) { suffix = "st"; }
+        else if (pos == 2) { suffix = "nd"; }
+        else if (pos == 3) { suffix = "rd"; }
+        var placeStr = (pos > 0) ? (pos.toString() + suffix + " Place") : "1st Place";
+        var placeCol = fg;
+        _text(dc, cx, h * 2 / 3, Graphics.FONT_MEDIUM, placeStr, placeCol, bg);
+
+        // Time gap — only shown when behind leader
+        if (deltaS > 0.1f) {
+            _text(dc, cx, h * 5 / 6, Graphics.FONT_SMALL,
+                  "+" + deltaS.format("%.1f") + "s", fg, bg);
+        }
     }
 
-    private function _drawServerRank(dc as Graphics.Dc, h as Number,
-                                      cx as Number, fg as Number, bg as Number) as Void {
-        var line = "";
-        var col  = Graphics.COLOR_DK_GRAY;
-        if (_rankStatus == RS_LOADING) {
-            line = "Server...";
-        } else if (_rankStatus == RS_DONE) {
-            if (_rankPos == 1) {
-                line = "Bestzeit! (" + _rankTotal.toString() + " Fahrer)";
-                col  = Graphics.COLOR_GREEN;
-            } else {
-                line = "Platz " + _rankPos.toString() + "/" + _rankTotal.toString() +
-                       " +" + _rankDelta.format("%.1f") + "s";
-                col  = (_rankPos <= 3) ? Graphics.COLOR_YELLOW : fg;
-            }
-        } else if (_rankStatus == RS_OFFLINE) {
-            line = "Offline";
-        }
-        if (!line.equals("")) {
-            _text(dc, cx, h * 7 / 8, Graphics.FONT_TINY, line, col, bg);
+    // Draws a German Ortstafel around the town name.
+    // status = "" for normal screens, "WON"/"LOST" for result screen.
+    // statusColor is only used when status != "".
+    private function _drawOrtsschildSign(dc as Graphics.Dc, cx as Number,
+                                          cy as Number, name as String,
+                                          status as String, statusColor as Number) as Void {
+        var font       = Graphics.FONT_MEDIUM;
+        var statusFont = Graphics.FONT_TINY;
+        var dims       = dc.getTextDimensions(name, font);
+        var tw         = (dims[0] as Number);
+        var th         = (dims[1] as Number);
+        var hasStatus  = !status.equals("");
+        var statusH    = hasStatus ? dc.getFontHeight(statusFont) : 0;
+        var padX       = 30;
+        var padY       = 18;
+        var gap        = 3;   // gap between status and name when both present
+        var border     = 4;
+        var radius     = 15;
+        var signW      = tw + 2 * padX + 2 * border;
+        var contentH   = hasStatus ? (statusH + gap + th) : th;
+        var signH      = contentH + 2 * padY + 2 * border;
+        var sx         = cx - signW / 2;
+        var sy         = cy - signH / 2;
+
+        // Black outer rounded rect
+        dc.setColor(Graphics.COLOR_BLACK, -1);
+        dc.fillRoundedRectangle(sx, sy, signW, signH, radius);
+
+        // Yellow inner fill
+        dc.setColor(0xFFCC00, -1);
+        dc.fillRoundedRectangle(sx + border, sy + border,
+                                signW - 2 * border, signH - 2 * border,
+                                radius - 1);
+
+        // Content top = sy + border + padY
+        var contentTop = sy + border + padY;
+
+        if (hasStatus) {
+            // Status ("WON" / "LOST") centered in its row
+            var statusY = contentTop + statusH / 2;
+            dc.setColor(statusColor, 0xFFCC00);
+            dc.drawText(cx, statusY, statusFont, status,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            // Name below status
+            var nameY = contentTop + statusH + gap + th / 2;
+            dc.setColor(Graphics.COLOR_BLACK, 0xFFCC00);
+            dc.drawText(cx, nameY, font, name,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {
+            // Name centered in full sign
+            dc.setColor(Graphics.COLOR_BLACK, 0xFFCC00);
+            dc.drawText(cx, cy, font, name,
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
     }
 
@@ -557,10 +645,53 @@ class OrtsschilderField extends WatchUi.DataField {
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
+    // Absolute bearing from (lat1,lon1) to (lat2,lon2) in radians (0=N, clockwise).
+    private function _calcBearing(lat1 as Float, lon1 as Float,
+                                   lat2 as Float, lon2 as Float) as Float {
+        var r1   = lat1 * Math.PI / 180.0;
+        var r2   = lat2 * Math.PI / 180.0;
+        var dLon = (lon2 - lon1) * Math.PI / 180.0;
+        var y    = Math.sin(dLon) * Math.cos(r2);
+        var x    = Math.cos(r1) * Math.sin(r2) - Math.sin(r1) * Math.cos(r2) * Math.cos(dLon);
+        return Math.atan2(y, x).toFloat();
+    }
+
+    // Navigation-cursor arrow centred at (cx, cy), rotated by relAngle (0 = up).
+    // 4 points: tip, right-wing, rear-notch, left-wing — like a map cursor icon.
+    private function _drawArrow(dc as Graphics.Dc, cx as Number, cy as Number,
+                                 relAngle as Float, fg as Number) as Void {
+        var r    = 14.0f;
+        var sinA = Math.sin(relAngle).toFloat();
+        var cosA = Math.cos(relAngle).toFloat();
+
+        // Template points (local coords, tip pointing up = negative y):
+        //   tip      (  0,    -r  )
+        //   r-wing   ( r*0.6,  r*0.55 )
+        //   notch    (  0,     r*0.1  )   ← concave indent
+        //   l-wing   (-r*0.6,  r*0.55 )
+        var lx0 =  0.0f;       var ly0 = -r;
+        var lx1 =  r * 0.6f;   var ly1 =  r * 0.55f;
+        var lx2 =  0.0f;       var ly2 =  r * 0.1f;
+        var lx3 = -r * 0.6f;   var ly3 =  r * 0.55f;
+
+        var x0 = (cx + lx0 * cosA - ly0 * sinA).toNumber();
+        var y0 = (cy + lx0 * sinA + ly0 * cosA).toNumber();
+        var x1 = (cx + lx1 * cosA - ly1 * sinA).toNumber();
+        var y1 = (cy + lx1 * sinA + ly1 * cosA).toNumber();
+        var x2 = (cx + lx2 * cosA - ly2 * sinA).toNumber();
+        var y2 = (cy + lx2 * sinA + ly2 * cosA).toNumber();
+        var x3 = (cx + lx3 * cosA - ly3 * sinA).toNumber();
+        var y3 = (cy + lx3 * sinA + ly3 * cosA).toNumber();
+
+        dc.setColor(fg, -1);
+        dc.fillPolygon([[x0, y0], [x1, y1], [x2, y2], [x3, y3]]);
+    }
+
     private function _fmtDist(dist as Float) as String {
         if (dist >= 1000.0) {
             return (dist / 1000.0).format("%.1f") + " km";
         }
-        return dist.format("%.0f") + " m";
+        var rounded = (((dist / 10.0f).toNumber()) * 10) as Number;
+        return rounded.format("%d") + " m";
     }
 }
