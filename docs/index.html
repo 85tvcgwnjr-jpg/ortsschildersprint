@@ -166,7 +166,7 @@
       pointer-events: none; /* niemals Mausevents abfangen — verhindert Flackern */
       transition: opacity 0.35s;
     }
-    .sidebar-overlay.open { opacity: 1; }
+    .sidebar-overlay.open { opacity: 1; pointer-events: auto; }
 
     .sidebar {
       position: fixed;
@@ -1172,6 +1172,9 @@
     scheduleClose();
   });
 
+  // Klick auf Overlay (= außerhalb Sidebar + Header) schließt sofort
+  sidebarOver.addEventListener("click", () => { clearTimeout(closeTimer); closeSidebar(); });
+
   document.getElementById("sidebar-logout").addEventListener("click", () => {
     closeSidebar();
     sb.auth.signOut();
@@ -1396,8 +1399,6 @@
       let routePoints = track.map(p => [p[0], p[1]]);
       try { routePoints = await matchToRoads(track); } catch(e) {}
       const line = L.polyline(routePoints, { color: "#FFCC00", weight: 3 }).addTo(map);
-      L.circleMarker(routePoints[0],                    { radius:6, color:"#00c853", fillColor:"#00c853", fillOpacity:1 }).bindPopup("Start").addTo(map);
-      L.circleMarker(routePoints[routePoints.length-1], { radius:6, color:"#ff5252", fillColor:"#ff5252", fillOpacity:1 }).bindPopup("Ende").addTo(map);
       map.fitBounds(line.getBounds(), { padding:[20,20] });
     }
     for (const c of crossings) {
@@ -1605,17 +1606,6 @@
       });
       ctx.stroke();
       ctx.shadowBlur = 0;
-
-      ctx.beginPath();
-      ctx.arc(toX(routePoints[0][1]), toY(routePoints[0][0]), 14, 0, Math.PI * 2);
-      ctx.fillStyle = "#00C853"; ctx.fill();
-      ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
-
-      const ep = routePoints[routePoints.length - 1];
-      ctx.beginPath();
-      ctx.arc(toX(ep[1]), toY(ep[0]), 14, 0, Math.PI * 2);
-      ctx.fillStyle = "#FF5252"; ctx.fill();
-      ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
 
       for (let i = 0; i < d.crossings.length; i++) {
         const c = d.crossings[i];
