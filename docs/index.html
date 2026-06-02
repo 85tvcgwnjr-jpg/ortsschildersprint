@@ -1390,9 +1390,11 @@
 
   // Bearbeiten → zurück zum großen Verknüpfen-Hauptscreen (wie ohne Geräte-ID),
   // mit der aktuellen ID vorausgefüllt zum Ändern.
-  document.getElementById("sidebar-edit-btn").addEventListener("click", () => {
-    const current = document.getElementById("sidebar-device").textContent.replace("Gerät: ", "").trim();
+  document.getElementById("sidebar-edit-btn").addEventListener("click", async () => {
     closeSidebar();
+    // Echte (vollständige) ID aus den Auth-Metadaten vorausfüllen.
+    const sess = (await sb.auth.getSession()).data.session;
+    const current = sess?.user?.user_metadata?.device_id || "";
     renderLinkDevice(current);
   });
 
@@ -1419,7 +1421,7 @@
     }
 
     // Sidebar-Anzeige aktualisieren + Geräte-Zeile einblenden
-    document.getElementById("sidebar-device").textContent = "Gerät: " + newDevice;
+    document.getElementById("sidebar-device").textContent = "Geräte ID: " + shortId(newDevice);
     document.getElementById("sidebar-device-row").style.display = "";
   }
 
@@ -1439,7 +1441,7 @@
       document.getElementById("sidebar-avatar").textContent = initial;
       document.getElementById("sidebar-name").textContent   = displayName || "";
       // Geräte-Zeile (mit Ändern-Button) nur zeigen, wenn eine ID verknüpft ist.
-      document.getElementById("sidebar-device").textContent = deviceId ? "Gerät: " + deviceId : "";
+      document.getElementById("sidebar-device").textContent = deviceId ? "Geräte ID: " + shortId(deviceId) : "";
       document.getElementById("sidebar-device-row").style.display = deviceId ? "" : "none";
 
       // Aktiviere Animations- und Hamburger-Modus
