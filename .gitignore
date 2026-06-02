@@ -26,7 +26,6 @@ source/
 resources/
 monkey.jungle
 manifest.xml
-website/
 
 # Edge Function — deployed directly via Supabase dashboard, not via git
 supabase/
