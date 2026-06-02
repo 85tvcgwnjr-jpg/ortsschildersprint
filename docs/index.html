@@ -1404,6 +1404,11 @@
     const { data, error } = await sb.auth.updateUser({ data: { device_id: newDevice } });
     if (error) throw error;
 
+    // Token mit der neuen device_id neu laden — die RLS-Regel für rides liest
+    // die device_id aus dem JWT. Ohne Refresh würde der alte (leere) Token
+    // das Lesen der eigenen Fahrten direkt nach dem Verknüpfen blockieren.
+    await sb.auth.refreshSession();
+
     const displayName = data.user.user_metadata?.display_name || "";
     const sess = (await sb.auth.getSession()).data.session;
 
@@ -1865,9 +1870,11 @@
     listEl.innerHTML = `<div class="picker-empty">Lade Fahrten…</div>`;
 
     try {
-      // Alle Fahrten + alle bereits verknüpften device_ids holen
+      // Alle Fahrten + alle bereits verknüpften device_ids holen.
+      // rides_public = öffentliche View OHNE gps_track (Tracks sind privat,
+      // nur über die rides-Basistabelle für den Eigentümer lesbar).
       const [rides, profiles] = await Promise.all([
-        fetchJSON(`/rest/v1/rides?select=device_id,started_at,ended_at&order=started_at.desc&limit=200`),
+        fetchJSON(`/rest/v1/rides_public?select=device_id,started_at,ended_at&order=started_at.desc&limit=200`),
         fetchJSON(`/rest/v1/profiles?select=device_id`)
       ]);
 
@@ -1992,7 +1999,10 @@
 
     document.getElementById("featured-delete").addEventListener("click", async () => {
       if (!confirm("Fahrt löschen?")) return;
-      const delHeaders = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY };
+      // Mit dem Login-Token löschen — RLS erlaubt nur das Löschen eigener Fahrten.
+      const delSess = (await sb.auth.getSession()).data.session;
+      if (!delSess) { alert("Bitte zuerst anmelden."); return; }
+      const delHeaders = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + delSess.access_token };
 
       // Eigene Crossings dieser Fahrt laden
       const ownCrossings = await fetchJSON(
