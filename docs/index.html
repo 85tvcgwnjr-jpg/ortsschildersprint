@@ -721,38 +721,6 @@
       line-height: 1.55;
       margin-bottom: 1.6rem;
     }
-    .link-input-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
-    .link-input {
-      flex: 1;
-      background: var(--surface2);
-      border: 1px solid var(--border2);
-      border-radius: var(--r);
-      color: var(--text);
-      font-family: var(--fb);
-      font-size: 0.95rem;
-      padding: 0.7rem 0.9rem;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .link-input:focus { border-color: var(--yellow); }
-    .link-save-btn {
-      background: var(--yellow);
-      color: #000;
-      font-weight: 700;
-      font-family: var(--fb);
-      font-size: 0.9rem;
-      border: none;
-      border-radius: var(--r);
-      padding: 0.7rem 1.2rem;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .link-save-btn:disabled { opacity: 0.5; cursor: default; }
-    .link-or {
-      font-size: 0.82rem;
-      color: var(--text3);
-      margin: 0.6rem 0;
-    }
     .link-browse-btn {
       background: none;
       border: 1px solid var(--border2);
@@ -824,6 +792,53 @@
     .picker-item .picker-date { font-size: 0.92rem; font-weight: 600; color: var(--text); }
     .picker-item .picker-sub  { font-size: 0.74rem; color: var(--text3); margin-top: 0.12rem; }
     .picker-empty { padding: 2.5rem 1.3rem; text-align: center; color: var(--text3); font-size: 0.86rem; }
+
+    /* Code-Eingabe (Besitznachweis) */
+    .code-entry { padding: 1.5rem 1.3rem 1.6rem; text-align: center; }
+    .code-ride {
+      font-size: 0.95rem; font-weight: 600; color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+    .code-entry p { font-size: 0.84rem; color: var(--text2); line-height: 1.5; margin-bottom: 1.1rem; }
+    .code-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: var(--fb);
+      font-size: 1.4rem;
+      letter-spacing: 0.35em;
+      text-align: center;
+      padding: 0.7rem 0.5rem;
+      outline: none;
+      margin-bottom: 0.75rem;
+      transition: border-color 0.15s;
+    }
+    .code-input:focus { border-color: var(--yellow); }
+    .code-confirm {
+      width: 100%;
+      background: var(--yellow);
+      color: #000;
+      font-weight: 700;
+      font-family: var(--fb);
+      font-size: 0.95rem;
+      border: none;
+      border-radius: var(--r);
+      padding: 0.7rem;
+      cursor: pointer;
+      margin-bottom: 0.5rem;
+    }
+    .code-confirm:disabled { opacity: 0.5; cursor: default; }
+    .code-back {
+      background: none; border: none;
+      color: var(--text3);
+      font-family: var(--fb);
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .code-back:hover { color: var(--text2); }
+    .code-msg { display: none; margin-top: 0.7rem; font-size: 0.82rem; color: var(--red); }
 
     .error {
       color: var(--red);
@@ -1074,7 +1089,7 @@
 <div class="picker-overlay" id="picker-overlay">
   <div class="picker-box">
     <div class="picker-head">
-      <h3>Fahrt auswählen</h3>
+      <h3 id="picker-title">Fahrt auswählen</h3>
       <button class="picker-close" id="picker-close">✕</button>
     </div>
     <div class="picker-list" id="picker-list"></div>
@@ -1390,43 +1405,37 @@
 
   // Bearbeiten → zurück zum großen Verknüpfen-Hauptscreen (wie ohne Geräte-ID),
   // mit der aktuellen ID vorausgefüllt zum Ändern.
-  document.getElementById("sidebar-edit-btn").addEventListener("click", async () => {
+  document.getElementById("sidebar-edit-btn").addEventListener("click", () => {
     closeSidebar();
-    // Echte (vollständige) ID aus den Auth-Metadaten vorausfüllen.
-    const sess = (await sb.auth.getSession()).data.session;
-    const current = sess?.user?.user_metadata?.device_id || "";
-    renderLinkDevice(current);
+    renderLinkDevice();
   });
 
-  // Geteilte Speicher-Logik: schreibt device_id in Auth-Metadaten + profiles-Tabelle.
-  // Genutzt von der Sidebar UND vom Verknüpfen-Screen auf dem Hauptbildschirm.
-  async function saveDeviceId(newDevice) {
-    const { data, error } = await sb.auth.updateUser({ data: { device_id: newDevice } });
-    if (error) throw error;
-
-    // Token mit der neuen device_id neu laden — die RLS-Regel für rides liest
-    // die device_id aus dem JWT. Ohne Refresh würde der alte (leere) Token
-    // das Lesen der eigenen Fahrten direkt nach dem Verknüpfen blockieren.
-    await sb.auth.refreshSession();
-
-    const displayName = data.user.user_metadata?.display_name || "";
+  // Verknüpfen mit Besitznachweis-Code. Läuft serverseitig über die
+  // claim-device Edge Function (prüft Code ↔ Geräte-ID, schreibt device_id
+  // ins Konto + profiles). Wirft bei falschem Code / Fehler.
+  async function claimDevice(deviceId, code) {
     const sess = (await sb.auth.getSession()).data.session;
+    if (!sess) throw new Error("Nicht angemeldet");
 
-    if (displayName && sess) {
-      await fetch(SUPABASE_URL + "/rest/v1/profiles", {
-        method: "POST",
-        headers: {
-          "apikey": SUPABASE_KEY,
-          "Authorization": "Bearer " + sess.access_token,
-          "Content-Type": "application/json",
-          "Prefer": "resolution=merge-duplicates"
-        },
-        body: JSON.stringify({ device_id: newDevice, display_name: displayName, updated_at: new Date().toISOString() })
-      }).catch(() => {});
+    const res = await fetch(SUPABASE_URL + "/functions/v1/claim-device", {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": "Bearer " + sess.access_token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ device_id: deviceId, code: code })
+    });
+
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json()).error || ""; } catch (e) {}
+      throw new Error(detail || ("Fehler " + res.status));
     }
 
-    // Sidebar-Anzeige aktualisieren + Geräte-Zeile einblenden
-    document.getElementById("sidebar-device").textContent = "Geräte ID: " + shortId(newDevice);
+    // Neues JWT mit device_id holen (RLS für rides liest sie daraus) + Sidebar aktualisieren.
+    await sb.auth.refreshSession();
+    document.getElementById("sidebar-device").textContent = "Geräte ID: " + shortId(deviceId);
     document.getElementById("sidebar-device-row").style.display = "";
   }
 
@@ -1809,70 +1818,43 @@
 
   // ── Verknüpfen-Screen (kein Gerät) ────────────────────────────────────────
 
-  function renderLinkDevice(prefill) {
+  function renderLinkDevice() {
     const root = document.getElementById("root");
     if (activeLeafletMap) { activeLeafletMap.remove(); activeLeafletMap = null; }
     root.className = '';
-    const presetVal = (prefill || "").replace(/"/g, "");
     root.innerHTML = `
       <div class="link-device">
         <img src="imageRadcomputer.png" alt="Garmin Radcomputer">
         <h2>Garmin Geräte-ID verknüpfen</h2>
-        <p>Gib die ID ein, die dein Radcomputer im Ortsschilder-Sprint-Datenfeld
-           anzeigt (<strong>ID=…</strong>) oder wähle sie aus einer deiner Fahrten</p>
-        <div class="link-input-row">
-          <input class="link-input" id="link-input" type="text" placeholder="Geräte-ID" autocomplete="off" value="${presetVal}">
-          <button class="link-save-btn" id="link-save">Verknüpfen</button>
-        </div>
-        <div class="link-or">oder</div>
+        <p>Wähle deine letzte Fahrt aus der Liste — sie wird dann automatisch
+           deinem Konto zugeordnet</p>
         <button class="link-browse-btn" id="link-browse">Aus Fahrten auswählen</button>
         <div class="link-msg" id="link-msg"></div>
       </div>`;
 
-    const input  = document.getElementById("link-input");
-    const saveBtn = document.getElementById("link-save");
-    const msgEl  = document.getElementById("link-msg");
+    const msgEl = document.getElementById("link-msg");
 
-    async function doSave() {
-      const val = input.value.trim();
-      if (!val) {
-        msgEl.textContent = "Bitte eine Geräte-ID eingeben";
-        msgEl.style.display = "block";
-        return;
-      }
-      saveBtn.disabled = true;
-      saveBtn.textContent = "…";
-      msgEl.style.display = "none";
-      try {
-        await saveDeviceId(val);
-        loadApp(val); // lädt jetzt die Fahrten dieses Geräts
-      } catch (e) {
-        msgEl.textContent = "Fehler: " + e.message;
-        msgEl.style.display = "block";
-        saveBtn.disabled = false;
-        saveBtn.textContent = "Verknüpfen";
-      }
-    }
-
-    saveBtn.addEventListener("click", doSave);
-    input.addEventListener("keydown", (e) => { if (e.key === "Enter") doSave(); });
     document.getElementById("link-browse").addEventListener("click", () =>
-      openRidePicker((deviceId) => { input.value = deviceId; })
+      openRidePicker(async (deviceId, code) => {
+        await claimDevice(deviceId, code); // wirft bei falschem Code → Picker zeigt Fehler
+        loadApp(deviceId);                 // lädt die Fahrten dieses Geräts
+      })
     );
   }
 
   // ── Auswahl-Fenster: Fahrten ohne verknüpftes Profil ──────────────────────
 
-  async function openRidePicker(onPick) {
+  // onConfirm(deviceId, code) wird nach Code-Eingabe aufgerufen; wirft bei Fehler.
+  async function openRidePicker(onConfirm) {
     const overlay = document.getElementById("picker-overlay");
     const listEl  = document.getElementById("picker-list");
+    const headEl  = document.getElementById("picker-title");
     overlay.classList.add("open");
+    headEl.textContent = "Fahrt auswählen";
     listEl.innerHTML = `<div class="picker-empty">Lade Fahrten…</div>`;
 
     try {
-      // Alle Fahrten + alle bereits verknüpften device_ids holen.
-      // rides_public = öffentliche View OHNE gps_track (Tracks sind privat,
-      // nur über die rides-Basistabelle für den Eigentümer lesbar).
+      // rides_public = öffentliche View OHNE gps_track (Tracks privat).
       const [rides, profiles] = await Promise.all([
         fetchJSON(`/rest/v1/rides_public?select=device_id,started_at,ended_at&order=started_at.desc&limit=200`),
         fetchJSON(`/rest/v1/profiles?select=device_id`)
@@ -1896,17 +1878,61 @@
           <div class="picker-dot"></div>
           <div class="picker-info">
             <div class="picker-date">${fmtTime(r.started_at)}</div>
-            <div class="picker-sub">${fmtDuration(dur)} · ID …${r.device_id.slice(-6)}</div>
+            <div class="picker-sub">${fmtDuration(dur)}</div>
           </div>`;
-        item.addEventListener("click", () => {
-          onPick(r.device_id);
-          closeRidePicker();
-        });
+        item.addEventListener("click", () => showCodeEntry(r, onConfirm));
         listEl.appendChild(item);
       }
     } catch (e) {
       listEl.innerHTML = `<div class="picker-empty" style="color:var(--red)">Fehler: ${e.message}</div>`;
     }
+  }
+
+  // Code-Eingabe für die ausgewählte Fahrt (Besitznachweis).
+  function showCodeEntry(ride, onConfirm) {
+    const listEl = document.getElementById("picker-list");
+    document.getElementById("picker-title").textContent = "Code eingeben";
+    listEl.innerHTML = `
+      <div class="code-entry">
+        <div class="code-ride">${fmtTime(ride.started_at)}</div>
+        <p>Gib den <strong>Code</strong> ein, der auf deinem Garmin im
+           Ortsschilder-Sprint-Datenfeld steht (<strong>Code: …</strong>)</p>
+        <input class="code-input" id="claim-code-input" inputmode="numeric"
+               maxlength="6" placeholder="6-stelliger Code" autocomplete="off">
+        <button class="code-confirm" id="claim-code-confirm">Verknüpfen</button>
+        <button class="code-back" id="claim-code-back">Zurück</button>
+        <div class="code-msg" id="claim-code-msg"></div>
+      </div>`;
+
+    const input = document.getElementById("claim-code-input");
+    const btn   = document.getElementById("claim-code-confirm");
+    const msgEl = document.getElementById("claim-code-msg");
+    input.focus();
+
+    async function doConfirm() {
+      const code = input.value.trim();
+      if (code.length < 4) {
+        msgEl.textContent = "Bitte den Code vom Garmin eingeben";
+        msgEl.style.display = "block";
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Verknüpfe…";
+      msgEl.style.display = "none";
+      try {
+        await onConfirm(ride.device_id, code);
+        closeRidePicker();
+      } catch (e) {
+        msgEl.textContent = e.message;
+        msgEl.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Verknüpfen";
+      }
+    }
+
+    btn.addEventListener("click", doConfirm);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") doConfirm(); });
+    document.getElementById("claim-code-back").addEventListener("click", () => openRidePicker(onConfirm));
   }
 
   function closeRidePicker() {
