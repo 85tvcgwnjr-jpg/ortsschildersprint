@@ -962,7 +962,6 @@
       <input class="auth-input" type="text"     id="reg-name"     placeholder="Name">
       <input class="auth-input" type="email"    id="reg-email"    placeholder="E-Mail" autocomplete="email">
       <input class="auth-input" type="password" id="reg-password" placeholder="Passwort" autocomplete="new-password">
-      <input class="auth-input" type="text"     id="reg-device"   placeholder="Garmin Device ID">
       <button class="btn-primary" id="btn-register">Registrieren</button>
       <div class="auth-switch">Schon registriert? <a id="to-login">Anmelden</a></div>
     </div>
@@ -1087,22 +1086,23 @@
     const name     = document.getElementById("reg-name").value.trim();
     const email    = document.getElementById("reg-email").value.trim();
     const password = document.getElementById("reg-password").value;
-    const deviceId = document.getElementById("reg-device").value.trim();
     const errEl    = document.getElementById("reg-error");
     const infoEl   = document.getElementById("reg-info");
     errEl.style.display = "none";
     infoEl.style.display = "none";
 
-    if (!name || !email || !password || !deviceId) {
+    if (!name || !email || !password) {
       errEl.textContent = "Bitte alle Felder ausfüllen";
       errEl.style.display = "block";
       return;
     }
 
+    // Geräte-ID wird nicht bei der Registrierung abgefragt — sie wird später
+    // in der Seitenleiste ("Geräte-ID bearbeiten") gesetzt, sobald man eingeloggt ist.
     const { error } = await sb.auth.signUp({
       email, password,
       options: {
-        data: { display_name: name, device_id: deviceId },
+        data: { display_name: name, device_id: "" },
         emailRedirectTo: "https://85tvcgwnjr-jpg.github.io/ortsschildersprint/"
       }
     });
@@ -1121,7 +1121,6 @@
       document.getElementById("reg-name").value     = "";
       document.getElementById("reg-email").value    = "";
       document.getElementById("reg-password").value = "";
-      document.getElementById("reg-device").value   = "";
     }
   });
 
@@ -1285,7 +1284,7 @@
       const initial = displayName ? displayName[0].toUpperCase() : "?";
       document.getElementById("sidebar-avatar").textContent = initial;
       document.getElementById("sidebar-name").textContent   = displayName || "";
-      document.getElementById("sidebar-device").textContent = deviceId ? "Gerät: " + deviceId : "";
+      document.getElementById("sidebar-device").textContent = deviceId ? "Gerät: " + deviceId : "Kein Gerät verknüpft";
 
       // Aktiviere Animations- und Hamburger-Modus
       header.classList.add("app-mode");
