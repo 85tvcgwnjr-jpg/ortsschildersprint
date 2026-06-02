@@ -319,8 +319,20 @@
       background: rgba(255,68,68,0.07);
       color: var(--red);
     }
-    .sidebar-item.delete-account { color: var(--red); }
-    .sidebar-item.delete-account:hover { background: rgba(255,68,68,0.07); }
+    .sidebar-item.delete-account {
+      color: var(--text2);
+      opacity: 0.55;
+      font-size: 0.78rem;
+      font-weight: 400;
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+    .sidebar-item.delete-account svg { width: 13px; height: 13px; }
+    .sidebar-item.delete-account:hover {
+      opacity: 1;
+      color: var(--red);
+      background: rgba(255,68,68,0.06);
+    }
     .sidebar-item svg { opacity: 0.55; flex-shrink: 0; }
 
     /* Account-Löschen Bestätigung */
