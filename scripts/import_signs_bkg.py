@@ -60,9 +60,12 @@ SUPABASE_URL         = "https://slcprtkqkqwgstnyfpus.supabase.co"
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 BATCH_SIZE = 500
 
-# Straßentypen mit Ortsschild-Pflicht (StVO § 42 VwV)
-# motorway ausgeschlossen: Autobahn hat keine Ortsdurchfahrten
-ROAD_TYPES = "trunk|primary|secondary|tertiary|unclassified"
+# Straßentypen mit Ortsschild-Pflicht (StVO § 42 + VwV-StVO)
+# Alle öffentlichen Straßen die eine geschlossene Ortschaft betreten können.
+# motorway: Autobahn — Sonderregelung, kein normales Ortsschild
+# living_street: verkehrsberuhigter Bereich — liegt bereits im Ort
+# service/track: Privatwege/Wirtschaftswege — keine Pflicht
+ROAD_TYPES = "trunk|primary|secondary|tertiary|unclassified|residential"
 
 # BKG WFS: Gemeinden (vg250_gem), WGS84, seitenweise
 BKG_WFS = (
