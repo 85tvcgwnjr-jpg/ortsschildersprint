@@ -15,9 +15,8 @@ bin/
 .DS_Store
 *.swp
 
-# Claude config — alles ignorieren außer RULES.md
+# Claude config — alles ignorieren
 .claude/*
-!.claude/RULES.md
 
 # Large skill framework (Claude tooling, not app code)
 .agents/
