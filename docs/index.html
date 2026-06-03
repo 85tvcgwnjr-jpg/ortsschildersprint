@@ -425,6 +425,38 @@
     .auth-switch a { color: var(--yellow); cursor: pointer; text-decoration: none; font-weight: 600; }
     .auth-switch a:hover { text-decoration: underline; }
 
+    .auth-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      margin: 0.4rem 0 0.6rem;
+      cursor: pointer;
+    }
+    .auth-check input[type="checkbox"] {
+      margin-top: 0.18rem;
+      accent-color: var(--yellow);
+      flex-shrink: 0;
+      width: 15px; height: 15px;
+      cursor: pointer;
+    }
+    .auth-check span {
+      font-size: 0.78rem;
+      color: var(--text2);
+      line-height: 1.45;
+    }
+    .auth-check a { color: var(--yellow); text-decoration: none; }
+    .auth-check a:hover { text-decoration: underline; }
+
+    /* Footer */
+    .site-footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      font-size: 0.78rem;
+      color: var(--text3);
+    }
+    .site-footer a { color: var(--text3); text-decoration: none; }
+    .site-footer a:hover { color: var(--yellow); }
+
     .auth-error {
       background: rgba(255,68,68,0.07);
       border: 1px solid rgba(255,68,68,0.25);
@@ -1191,6 +1223,10 @@
       <input class="auth-input" type="text"     id="reg-name"     placeholder="Name">
       <input class="auth-input" type="email"    id="reg-email"    placeholder="E-Mail" autocomplete="email">
       <input class="auth-input" type="password" id="reg-password" placeholder="Passwort" autocomplete="new-password">
+      <label class="auth-check" id="reg-privacy-label">
+        <input type="checkbox" id="reg-privacy">
+        <span>Ich habe die <a href="datenschutz.html" target="_blank">Datenschutzerklärung</a> gelesen und stimme zu</span>
+      </label>
       <button class="btn-primary" id="btn-register">Registrieren</button>
       <div class="auth-switch">Schon registriert? <a id="to-login">Anmelden</a></div>
     </div>
@@ -1339,8 +1375,14 @@
     errEl.style.display = "none";
     infoEl.style.display = "none";
 
+    const privacy = document.getElementById("reg-privacy");
     if (!name || !email || !password) {
       errEl.textContent = "Bitte alle Felder ausfüllen";
+      errEl.style.display = "block";
+      return;
+    }
+    if (!privacy.checked) {
+      errEl.textContent = "Bitte der Datenschutzerklärung zustimmen";
       errEl.style.display = "block";
       return;
     }
@@ -2177,5 +2219,10 @@
     });
   }
 </script>
+
+<footer class="site-footer">
+  <a href="datenschutz.html">Datenschutzerklärung</a>
+</footer>
+
 </body>
 </html>

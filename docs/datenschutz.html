@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Datenschutzerklärung – Ortsschilder Sprint</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #08080a;
+      color: #f0f0ec;
+      min-height: 100vh;
+      line-height: 1.7;
+    }
+    header {
+      background: #0d0d10;
+      border-bottom: 2px solid #FFCC00;
+      padding: 1.2rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header a {
+      color: #999;
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    header a:hover { color: #FFCC00; }
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #FFCC00;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+    h2 {
+      font-size: 1.25rem;
+      color: #FFCC00;
+      margin: 2rem 0 0.75rem;
+    }
+    h3 {
+      font-size: 1rem;
+      color: #ccc;
+      margin: 1.4rem 0 0.4rem;
+    }
+    p { margin-bottom: 0.85rem; color: #ccc; font-size: 0.9rem; }
+    ul { margin: 0.4rem 0 0.85rem 1.4rem; color: #ccc; font-size: 0.9rem; }
+    ul li { margin-bottom: 0.3rem; }
+    a { color: #FFCC00; }
+    .updated {
+      font-size: 0.8rem;
+      color: #555;
+      margin-bottom: 2rem;
+    }
+    .box {
+      background: #0d0d10;
+      border: 1px solid #1e1e26;
+      border-radius: 10px;
+      padding: 1.1rem 1.3rem;
+      margin: 1rem 0;
+    }
+    .box p { margin: 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="index.html">← Zurück</a>
+  <h1>Datenschutzerklärung</h1>
+</header>
+
+<div class="container">
+
+  <p class="updated">Stand: Juni 2026</p>
+
+  <p>Diese Datenschutzerklärung erläutert, welche personenbezogenen Daten die App
+  <strong>Ortsschilder Sprint</strong> erhebt, wie sie verwendet werden und welche
+  Rechte du als Nutzer hast.</p>
+
+  <!-- ── 1. Verantwortlicher ── -->
+  <h2>1. Verantwortlicher</h2>
+  <div class="box">
+    <p>
+      <!-- ⚠ Hier deinen echten Namen, Adresse und E-Mail eintragen -->
+      <strong>[Dein Name]</strong><br>
+      [Straße, PLZ Ort]<br>
+      [Land]<br>
+      E-Mail: <a href="mailto:[deine@email.de]">[deine@email.de]</a>
+    </p>
+  </div>
+
+  <!-- ── 2. Erhobene Daten ── -->
+  <h2>2. Welche Daten werden erhoben?</h2>
+
+  <h3>2.1 Kontodaten</h3>
+  <ul>
+    <li>E-Mail-Adresse (für Login und Passwort-Reset)</li>
+    <li>Anzeigename (selbst gewählt bei der Registrierung)</li>
+    <li>Garmin Geräte-ID (verknüpft dein Garmin-Gerät mit deinem Konto)</li>
+  </ul>
+
+  <h3>2.2 Fahrtdaten</h3>
+  <ul>
+    <li>GPS-Streckenverlauf (Koordinaten + Zeitstempel)</li>
+    <li>Start- und Endzeit der Fahrt</li>
+    <li>Überquerungen von Ortsschildern (Ortsschild, Zeitpunkt)</li>
+  </ul>
+
+  <h3>2.3 Technische Daten</h3>
+  <ul>
+    <li>Besitznachweis-Code (intern, 6-stellig, wird nie öffentlich angezeigt)</li>
+    <li>Zeitpunkt des letzten Uploads</li>
+  </ul>
+
+  <p>Es werden keine Zahlungsdaten, Gesundheitsdaten oder sonstige sensible
+  Kategorien personenbezogener Daten erhoben.</p>
+
+  <!-- ── 3. Zweck und Rechtsgrundlage ── -->
+  <h2>3. Zweck der Verarbeitung</h2>
+  <ul>
+    <li><strong>Konto &amp; Login</strong> – Bereitstellung des Dienstes (Art. 6 Abs. 1 lit. b DSGVO)</li>
+    <li><strong>GPS-Strecke</strong> – Anzeige der eigenen Fahrten auf der Karte; nur für den
+        eingeloggten Kontoinhaber sichtbar (Art. 6 Abs. 1 lit. b DSGVO)</li>
+    <li><strong>Ortsschild-Crossings</strong> – Berechnung der Rangliste am jeweiligen
+        Ortsschild; ohne Klarnamen, nur mit gekürzter Geräte-ID sichtbar für andere
+        (Art. 6 Abs. 1 lit. f DSGVO – berechtigtes Interesse am Spielbetrieb)</li>
+    <li><strong>Anzeigename</strong> – Erscheint in der Rangliste, wenn du dein Gerät
+        verknüpft hast; freiwillig wählbar (Art. 6 Abs. 1 lit. a DSGVO)</li>
+  </ul>
+
+  <!-- ── 4. Speicherdauer ── -->
+  <h2>4. Speicherdauer</h2>
+  <ul>
+    <li><strong>Kontodaten</strong>: bis zur Löschung deines Kontos</li>
+    <li><strong>Fahrtdaten</strong>: werden nach <strong>7 Tagen</strong> automatisch gelöscht</li>
+    <li><strong>Ortsschild-Crossings</strong>: werden zusammen mit der Fahrt nach 7 Tagen gelöscht,
+        sofern keine andere Fahrt noch auf denselben Crossing-Zeitpunkt angewiesen ist</li>
+  </ul>
+
+  <!-- ── 5. Weitergabe ── -->
+  <h2>5. Weitergabe an Dritte</h2>
+  <p>Deine Daten werden <strong>nicht an Dritte verkauft oder weitergegeben</strong>.</p>
+
+  <h3>5.1 Infrastruktur-Dienstleister</h3>
+  <ul>
+    <li><strong>Supabase Inc.</strong> (Datenbankhosting, USA) –
+        Daten werden auf EU-Servern gespeichert (Frankfurt); Supabase ist nach
+        dem EU-US Data Privacy Framework zertifiziert</li>
+    <li><strong>GitHub Pages</strong> (Hosting der Website) –
+        keine personenbezogenen Daten werden an GitHub übertragen</li>
+    <li><strong>OpenStreetMap / OSRM</strong> (Kartenkacheln, Routenberechnung) –
+        Es werden keine personenbezogenen Daten, nur grobe Koordinaten für
+        die Streckenglättung übertragen</li>
+  </ul>
+
+  <!-- ── 6. Deine Rechte ── -->
+  <h2>6. Deine Rechte (DSGVO)</h2>
+  <ul>
+    <li><strong>Auskunft</strong> (Art. 15): Du kannst jederzeit Auskunft über deine gespeicherten Daten anfragen</li>
+    <li><strong>Berichtigung</strong> (Art. 16): Unrichtige Daten lassen sich korrigieren</li>
+    <li><strong>Löschung</strong> (Art. 17): Über den Button <em>„Account löschen"</em> in der App werden alle deine Daten sofort gelöscht</li>
+    <li><strong>Einschränkung</strong> (Art. 18): Du kannst die Verarbeitung einschränken lassen</li>
+    <li><strong>Datenübertragbarkeit</strong> (Art. 20): Auf Anfrage stellen wir deine Daten in maschinenlesbarem Format bereit</li>
+    <li><strong>Widerspruch</strong> (Art. 21): Du kannst der Verarbeitung auf Basis von berechtigtem Interesse widersprechen</li>
+  </ul>
+  <p>Zur Ausübung deiner Rechte schreibe an:
+  <a href="mailto:[deine@email.de]">[deine@email.de]</a></p>
+  <p>Außerdem hast du das Recht, Beschwerde bei der zuständigen Datenschutzbehörde einzulegen.</p>
+
+  <!-- ── 7. Cookies ── -->
+  <h2>7. Cookies &amp; lokaler Speicher</h2>
+  <p>Die Website verwendet <strong>keine Tracking-Cookies</strong>. Es wird ausschließlich
+  der Browser-<code>localStorage</code> für die Sitzungsverwaltung (Login-Token) genutzt.
+  Dieser Speicher verlässt dein Gerät nicht und wird beim Ausloggen geleert.</p>
+
+  <!-- ── 8. Minderjährige ── -->
+  <h2>8. Minderjährige</h2>
+  <p>Das Angebot richtet sich nicht an Kinder unter 16 Jahren. Es werden wissentlich
+  keine Daten von Minderjährigen erhoben.</p>
+
+  <!-- ── 9. Änderungen ── -->
+  <h2>9. Änderungen dieser Erklärung</h2>
+  <p>Bei wesentlichen Änderungen wird das Datum oben aktualisiert. Die jeweils aktuelle
+  Version ist unter dieser URL abrufbar.</p>
+
+</div>
+</body>
+</html>
