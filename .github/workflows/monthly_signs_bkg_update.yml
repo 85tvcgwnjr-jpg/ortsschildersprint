@@ -1,0 +1,36 @@
+name: Monthly BKG Signs Update
+
+# Berechnet Ortsschild-Positionen aus offiziellen Gemeindegrenzen (BKG VG250)
+# × Straßennetz (OpenStreetMap) — Rechtsgrundlage: StVO § 42 / VwV-StVO.
+# Ergebnis landet in der Supabase-Tabelle signs_bkg (getrennt von signs).
+
+on:
+  schedule:
+    - cron: "0 5 1 * *"   # 1. des Monats, 05:00 UTC (nach OSM-Import um 03:00)
+  workflow_dispatch:        # Manueller Start: GitHub → Actions → Run workflow
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  update-signs-bkg:
+    name: BKG Gemeindegrenzen × Straßennetz
+    runs-on: ubuntu-latest
+    timeout-minutes: 180   # BKG-Verarbeitung: bis zu 3h für ganz Deutschland
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhängigkeiten installieren
+        run: pip install shapely
+
+      - name: BKG-Import ausführen
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/import_signs_bkg.py

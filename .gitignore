@@ -7,3 +7,5 @@
 !.github/**
 !docs/
 !docs/**
+!scripts/
+!scripts/*.py
