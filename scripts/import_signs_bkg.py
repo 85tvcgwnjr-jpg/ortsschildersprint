@@ -187,21 +187,10 @@ def build_index(features: list[dict]) -> tuple[list, STRtree]:
             geom  = shape(feat["geometry"])
             props = feat.get("properties", {})
 
-            # Mehrere mögliche Feldnamen für Gemeindename
-            name = (
-                props.get("GEN") or props.get("gen") or
-                props.get("NAME") or props.get("name") or
-                props.get("gemeinde_name") or ""
-            )
-            name = name.strip() if name else ""
-
-            # Mehrere mögliche Feldnamen für Bundesland-Schlüssel
-            snl_raw = (
-                props.get("SN_L") or props.get("sn_l") or
-                props.get("BL") or props.get("bundesland_schluessel") or ""
-            )
-            snl = str(snl_raw).zfill(2) if snl_raw else ""
-            bl  = BL_CODES.get(snl, snl)
+            # BKG VG250 WFS liefert Felder kleingeschrieben
+            name = props.get("gen", "").strip()
+            snl  = str(props.get("sn_l", "")).zfill(2)
+            bl   = BL_CODES.get(snl, snl)
 
             if not name or geom.is_empty:
                 continue
