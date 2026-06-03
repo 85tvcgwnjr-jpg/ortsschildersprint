@@ -2021,7 +2021,7 @@
         listEl.appendChild(item);
       }
     } catch (e) {
-      listEl.innerHTML = `<div class="picker-empty" style="color:var(--red)">Fehler: ${e.message}</div>`;
+      listEl.innerHTML = `<div class="picker-empty" style="color:var(--red)">Fehler: ${esc(e.message)}</div>`;
     }
   }
 
