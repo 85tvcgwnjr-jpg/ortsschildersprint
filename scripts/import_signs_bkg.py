@@ -162,16 +162,46 @@ def fetch_municipalities() -> list[dict]:
 def build_index(features: list[dict]) -> tuple[list, STRtree]:
     """Erstellt Spatial Index aus Gemeindegrenzen."""
     print("Spatial Index aufbauen...")
+
+    # Debug: erstes Feature ausgeben um Feldnamen zu prüfen
+    if features:
+        first_props = features[0].get("properties", {})
+        first_geom  = features[0].get("geometry", {})
+        print(f"  Debug — Felder: {list(first_props.keys())[:10]}")
+        print(f"  Debug — Geometry-Typ: {first_geom.get('type', '?')}")
+        if first_geom.get("coordinates"):
+            sample = first_geom["coordinates"]
+            # Zeige erste Koordinate um CRS zu erkennen
+            try:
+                first_coord = sample[0][0] if isinstance(sample[0][0], (list, tuple)) else sample[0]
+                print(f"  Debug — Erste Koordinate: {first_coord[:2] if len(first_coord) >= 2 else first_coord}")
+            except Exception:
+                pass
+
     muni_meta: list[tuple] = []   # (boundary_geom, name, bundesland)
     boundaries = []
+    errors = 0
 
     for feat in features:
         try:
             geom  = shape(feat["geometry"])
             props = feat.get("properties", {})
-            name  = props.get("GEN", "").strip()
-            snl   = str(props.get("SN_L", "")).zfill(2)
-            bl    = BL_CODES.get(snl, snl)
+
+            # Mehrere mögliche Feldnamen für Gemeindename
+            name = (
+                props.get("GEN") or props.get("gen") or
+                props.get("NAME") or props.get("name") or
+                props.get("gemeinde_name") or ""
+            )
+            name = name.strip() if name else ""
+
+            # Mehrere mögliche Feldnamen für Bundesland-Schlüssel
+            snl_raw = (
+                props.get("SN_L") or props.get("sn_l") or
+                props.get("BL") or props.get("bundesland_schluessel") or ""
+            )
+            snl = str(snl_raw).zfill(2) if snl_raw else ""
+            bl  = BL_CODES.get(snl, snl)
 
             if not name or geom.is_empty:
                 continue
@@ -182,8 +212,14 @@ def build_index(features: list[dict]) -> tuple[list, STRtree]:
 
             muni_meta.append((boundary, name, bl))
             boundaries.append(boundary)
-        except Exception:
+        except Exception as e:
+            errors += 1
+            if errors <= 5:
+                print(f"  Fehler bei Feature: {e}")
             continue
+
+    if errors > 0:
+        print(f"  {errors:,} Features konnten nicht verarbeitet werden")
 
     tree = STRtree(boundaries)
     print(f"  {len(muni_meta):,} Gemeindegrenzen indiziert")
