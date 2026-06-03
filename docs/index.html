@@ -2004,10 +2004,12 @@
         await onConfirm(ride.device_id, code);
         closeRidePicker();
       } catch (e) {
-        msgEl.textContent = e.message;
+        msgEl.textContent = e.message.includes("stimmt nicht") ? "Code falsch" : e.message;
         msgEl.style.display = "block";
         btn.disabled = false;
         btn.textContent = "Verknüpfen";
+        input.value = "";
+        input.focus();
       }
     }
 
