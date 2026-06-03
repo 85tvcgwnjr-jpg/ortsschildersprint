@@ -1281,6 +1281,14 @@
   }
   function shortId(id) { return id ? "…" + id.slice(-6) : "?"; }
 
+  // HTML-Escaping gegen XSS — für alle nutzer-/fremdgesteuerten Strings,
+  // die per innerHTML/setContent in die Seite gelangen (display_name, sign_name).
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
   // Website-eigenes Bestätigungs-Modal (ersetzt browser confirm()).
   function showConfirm(text) {
     return new Promise(resolve => {
@@ -1655,7 +1663,7 @@
       const devName  = isMe ? "Du" : (profiles[dev] || dev);
       const deltaStr = i === 0 ? "" : `<span class="popup-sign-delta">+${delta}s</span>`;
       return `<div class="popup-sign-row ${isMe ? "me" : ""}">
-        <span>${i+1}. ${devName}</span>${deltaStr}
+        <span>${i+1}. ${esc(devName)}</span>${deltaStr}
       </div>`;
     }).join("");
   }
@@ -1719,7 +1727,7 @@
             font-family:-apple-system,sans-serif;
             line-height:1.4;
             box-shadow:2px 2px 0 #888, 0 2px 6px rgba(0,0,0,0.35);
-          ">${c.sign_name}</div>
+          ">${esc(c.sign_name)}</div>
           <div style="
             width:3px;
             height:14px;
@@ -1737,7 +1745,7 @@
       }
       if (!nearest) continue;
       const marker = L.marker([nearest[0], nearest[1]], { icon: signIcon }).addTo(map);
-      const title  = `<div class="popup-sign-title">${c.sign_name}</div>`;
+      const title  = `<div class="popup-sign-title">${esc(c.sign_name)}</div>`;
       marker.bindPopup(
         title + `<div class="popup-sign-loading">Lade…</div>`,
         { maxWidth: 260, className: "sign-popup" }
@@ -2105,7 +2113,7 @@
       renderSidebarRides(allRides[0].id);
 
     } catch(e) {
-      root.innerHTML = `<div class="error">Verbindungsfehler: ${e.message}</div>`;
+      root.innerHTML = `<div class="error">Verbindungsfehler: ${esc(e.message)}</div>`;
     }
   }
 
