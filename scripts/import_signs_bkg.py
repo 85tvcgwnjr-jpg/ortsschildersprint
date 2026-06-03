@@ -1,27 +1,33 @@
 #!/usr/bin/env python3
 """
-BKG-Methode: Ortsschild-Positionen aus Gemeindegrenzen × Straßennetz berechnen.
+BKG + OSM Ortsteil-Methode: Ortsschild-Positionen berechnen.
 
 Rechtsgrundlage:
   StVO § 42 i.V.m. VwV-StVO zu Zeichen 310/311:
-  An jeder öffentlichen Straße, die eine geschlossene Ortschaft betritt oder
-  verlässt, ist ein Ortsschild (Zeichen 310 / 311) aufzustellen.
-  Schnittpunkt Gemeindegrenze × Straße = rechtlich korrekte Schildposition.
+  An jeder öffentlichen Straße, die eine "geschlossene Ortschaft" betritt oder
+  verlässt, ist ein Ortsschild (Zeichen 310/311) aufzustellen. Das gilt für:
+    a) Gemeinden: jede eigenständige Gemeinde (Verwaltungseinheit)
+    b) Ortsteile: räumlich durch Bebauungslücke abgegrenzte Siedlungen innerhalb
+       einer Gemeinde (z.B. Dorf das zu einer größeren Gemeinde gehört)
+  Grundlage: Schnittpunkt der jeweiligen Grenze × öffentliche Straße.
 
 Datenquellen:
   • BKG VG250 — Amtliche Gemeindegrenzen 1:250.000
     Quelle: © GeoBasis-DE / BKG (2024), Lizenz dl-de/by-2-0
     Dienst: https://sgx.geodatenzentrum.de/wfs_vg250
-  • OpenStreetMap via Overpass API — Straßennetz
+  • OpenStreetMap via Overpass API — Straßennetz + Ortsteilgrenzen
+    (admin_level=9 Stadtbezirke, admin_level=10 Stadtteile/Ortsteile)
 
 Vorgehen:
-  1. BKG VG250 Gemeindegrenzen als GeoJSON via WFS laden (WGS84)
-  2. Spatial Index (shapely STRtree) über alle Gemeindegrenzen aufbauen
-  3. Pro Bundesland: Straßen via Overpass holen (trunk → unclassified, keine Autobahn)
-  4. Schnittpunkte Straße × Gemeindegrenze berechnen → Schildpositionen
-  5. Upsert in Supabase-Tabelle signs_bkg (idempotent)
+  1. BKG VG250 Gemeindegrenzen laden → globaler Spatial Index
+  2. Pro Bundesland:
+     a. Straßen via Overpass holen (alle öffentlichen Typen, keine Autobahn)
+     b. Gemeinde-Schnittpunkte: Straße × BKG-Grenze
+     c. Ortsteil-Grenzen aus OSM (admin_level 9/10) laden → lokaler Index
+     d. Ortsteil-Schnittpunkte: Straße × OSM-Ortsteilgrenze
+  3. Zusammenführen + Upsert in Supabase signs_bkg
 
-Tabelle anlegen (einmalig im Supabase SQL Editor ausführen):
+Tabelle anlegen (einmalig im Supabase SQL Editor):
   CREATE TABLE IF NOT EXISTS signs_bkg (
       id          TEXT PRIMARY KEY,
       name        TEXT NOT NULL,
@@ -38,7 +44,7 @@ Tabelle anlegen (einmalig im Supabase SQL Editor ausführen):
 Usage:
   SUPABASE_SERVICE_KEY=<service_role_key> python3 scripts/import_signs_bkg.py
 
-Runtime: ca. 60–120 Minuten (abhängig von Overpass-Last).
+Runtime: ca. 30–60 Minuten.
 """
 
 import hashlib
@@ -51,7 +57,9 @@ import urllib.parse
 import urllib.request
 from typing import Optional
 
-from shapely.geometry import shape, LineString, Point, MultiLineString
+from shapely.geometry import LineString, Point
+from shapely.geometry import shape
+from shapely.ops import polygonize, unary_union
 from shapely.strtree import STRtree
 
 # ── Konfiguration ─────────────────────────────────────────────────────────────
@@ -73,7 +81,7 @@ BKG_WFS = (
     "?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature"
     "&TYPENAMES=vg250:vg250_gem"
     "&OUTPUTFORMAT=application/json"
-    "&SRSNAME=CRS:84"          # lon/lat Reihenfolge (GeoJSON-konform)
+    "&SRSNAME=CRS:84"
     "&COUNT=2000"
     "&STARTINDEX={start}"
 )
@@ -91,7 +99,6 @@ BUNDESLAENDER = [
     "Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen",
 ]
 
-# Amtliche Bundesland-Schlüssel (SN_L aus BKG VG250)
 BL_CODES = {
     "01": "Schleswig-Holstein",    "02": "Hamburg",
     "03": "Niedersachsen",         "04": "Bremen",
@@ -131,6 +138,27 @@ def _overpass_post(mirror: str, query: str, timeout: int = 360) -> bytes:
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
+
+def _overpass_query(query: str) -> list:
+    """Fragt Overpass ab, versucht alle Mirror mit Retry."""
+    for attempt in range(3):
+        if attempt > 0:
+            wait = 60 * attempt
+            print(f"  Retry {attempt}/2 — warte {wait}s...")
+            time.sleep(wait)
+        for mirror in OVERPASS_MIRRORS:
+            try:
+                print(f"    {mirror} ... ", end="", flush=True)
+                raw   = _overpass_post(mirror, query)
+                elems = json.loads(raw.decode("utf-8")).get("elements", [])
+                print(f"OK ({len(elems):,})")
+                return elems
+            except Exception as e:
+                print(f"FEHLER ({e})")
+                time.sleep(5)
+    print("  Alle Overpass-Mirror fehlgeschlagen.", file=sys.stderr)
+    return []
+
 # ── 1. BKG Gemeindegrenzen laden ──────────────────────────────────────────────
 
 def fetch_municipalities() -> list[dict]:
@@ -162,11 +190,10 @@ def fetch_municipalities() -> list[dict]:
     return features
 
 
-def build_index(features: list[dict]) -> tuple[list, STRtree]:
-    """Erstellt Spatial Index aus Gemeindegrenzen."""
-    print("Spatial Index aufbauen...")
-
-    muni_meta: list[tuple] = []   # (boundary_geom, name, bundesland)
+def build_gemeinde_index(features: list[dict]) -> tuple[list, STRtree]:
+    """Erstellt globalen Spatial Index aus BKG Gemeindegrenzen."""
+    print("Gemeinde-Index aufbauen...")
+    muni_meta: list[tuple] = []
     boundaries = []
     errors = 0
 
@@ -175,14 +202,13 @@ def build_index(features: list[dict]) -> tuple[list, STRtree]:
             geom  = shape(feat["geometry"])
             props = feat.get("properties", {})
 
-            # BKG VG250 WFS liefert Felder kleingeschrieben
+            # gf=4: Landfläche — gf=2 sind Wasserflächen ausschließen
+            if props.get("gf") != 4:
+                continue
+
             name = props.get("gen", "").strip()
             snl  = str(props.get("sn_l", "")).zfill(2)
             bl   = BL_CODES.get(snl, snl)
-
-            # gf=4: Landfläche — gf=2 sind Wasserflächen (Seen, Flüsse) ausschließen
-            if props.get("gf") != 4:
-                continue
 
             if not name or geom.is_empty:
                 continue
@@ -195,38 +221,15 @@ def build_index(features: list[dict]) -> tuple[list, STRtree]:
             boundaries.append(boundary)
         except Exception as e:
             errors += 1
-            if errors <= 5:
-                print(f"  Fehler bei Feature: {e}")
+            if errors <= 3:
+                print(f"  Fehler: {e}")
             continue
-
-    if errors > 0:
-        print(f"  {errors:,} Features konnten nicht verarbeitet werden")
 
     tree = STRtree(boundaries)
     print(f"  {len(muni_meta):,} Gemeindegrenzen indiziert")
     return muni_meta, tree
 
-# ── 2. Straßen per Bundesland via Overpass holen ─────────────────────────────
-
-def _overpass_query(query: str) -> list:
-    for attempt in range(3):
-        if attempt > 0:
-            wait = 60 * attempt
-            print(f"  Retry {attempt}/2 — warte {wait}s...")
-            time.sleep(wait)
-        for mirror in OVERPASS_MIRRORS:
-            try:
-                print(f"    {mirror} ... ", end="", flush=True)
-                raw  = _overpass_post(mirror, query)
-                elems = json.loads(raw.decode("utf-8")).get("elements", [])
-                print(f"OK ({len(elems):,} Wege)")
-                return elems
-            except Exception as e:
-                print(f"FEHLER ({e})")
-                time.sleep(5)
-    print("  Alle Overpass-Mirror fehlgeschlagen.", file=sys.stderr)
-    return []
-
+# ── 2. Straßen pro Bundesland ─────────────────────────────────────────────────
 
 def fetch_roads(bundesland: str) -> list[dict]:
     """Holt alle relevanten Straßen eines Bundeslandes mit Geometrie."""
@@ -238,18 +241,101 @@ area["name"="{bundesland}"]["admin_level"="4"]->.bl;
 out geom;"""
     return _overpass_query(query)
 
-# ── 3. Schnittpunkte berechnen ────────────────────────────────────────────────
 
-def way_to_linestring(way: dict) -> Optional[LineString]:
-    """Konvertiert Overpass-Way (mit geometry) in shapely LineString."""
-    geom = way.get("geometry", [])
-    if len(geom) < 2:
+def prepare_roads(ways: list[dict]) -> tuple[list[LineString], list[str]]:
+    """Extrahiert valide LineStrings + Straßentypen aus Overpass-Ways."""
+    road_geoms: list[LineString] = []
+    road_types: list[str]        = []
+    for way in ways:
+        geom = way.get("geometry", [])
+        if len(geom) < 2:
+            continue
+        try:
+            ls = LineString([(p["lon"], p["lat"]) for p in geom])
+            if not ls.is_empty:
+                road_geoms.append(ls)
+                road_types.append(way.get("tags", {}).get("highway", ""))
+        except Exception:
+            continue
+    return road_geoms, road_types
+
+# ── 3. Ortsteil-Grenzen aus OSM ───────────────────────────────────────────────
+
+def fetch_ortsteil_relations(bundesland: str) -> list[dict]:
+    """
+    Holt Ortsteil-Grenzen (admin_level 9/10) aus OSM.
+
+    Rechtsgrundlage: StVO § 42 gilt auch für räumlich abgegrenzte Ortsteile
+    innerhalb einer Gemeinde — jeder Ortsteil mit eigener Bebauungslücke
+    ist eine eigenständige "geschlossene Ortschaft" mit Ortsschild-Pflicht.
+
+    OSM admin_level:
+      9 = Stadtbezirk (z.B. Köln-Rodenkirchen)
+     10 = Stadtteil/Ortsteil (z.B. Köln-Junkersdorf)
+    """
+    query = f"""[out:json][timeout:300];
+area["name"="{bundesland}"]["admin_level"="4"]->.bl;
+relation["admin_level"~"^(9|10)$"]["boundary"="administrative"]["name"](area.bl);
+out geom;"""
+    return _overpass_query(query)
+
+
+def relation_to_polygon(relation: dict):
+    """Rekonstruiert Polygon aus Outer-Ways einer OSM-Boundary-Relation."""
+    outer_lines = []
+    for member in relation.get("members", []):
+        if (member.get("type") == "way"
+                and member.get("role") == "outer"
+                and "geometry" in member):
+            coords = [(n["lon"], n["lat"]) for n in member["geometry"]]
+            if len(coords) >= 2:
+                try:
+                    outer_lines.append(LineString(coords))
+                except Exception:
+                    continue
+
+    if not outer_lines:
         return None
+
     try:
-        return LineString([(p["lon"], p["lat"]) for p in geom])
+        polys = list(polygonize(outer_lines))
+        if not polys:
+            return None
+        return unary_union(polys)
     except Exception:
         return None
 
+
+def build_ortsteil_index(relations: list[dict]) -> tuple[list, Optional[STRtree]]:
+    """Erstellt lokalen Spatial Index aus OSM Ortsteil-Relationen."""
+    muni_meta: list[tuple] = []
+    boundaries = []
+
+    for rel in relations:
+        try:
+            name = rel.get("tags", {}).get("name", "").strip()
+            if not name:
+                continue
+
+            poly = relation_to_polygon(rel)
+            if poly is None or poly.is_empty:
+                continue
+
+            boundary = poly.boundary
+            if boundary.is_empty:
+                continue
+
+            muni_meta.append((boundary, name, ""))
+            boundaries.append(boundary)
+        except Exception:
+            continue
+
+    if not boundaries:
+        return [], None
+
+    return muni_meta, STRtree(boundaries)
+
+# ── 4. Schnittpunkte berechnen ────────────────────────────────────────────────
 
 def extract_points(intersection) -> list[Point]:
     """Extrahiert alle Punkte aus einem shapely Intersection-Ergebnis."""
@@ -259,7 +345,6 @@ def extract_points(intersection) -> list[Point]:
     if t == "MultiPoint":
         return list(intersection.geoms)
     if t in ("LineString", "LinearRing"):
-        # Straße verläuft entlang der Grenze → Endpunkte nehmen
         coords = list(intersection.coords)
         if len(coords) >= 2:
             return [Point(coords[0]), Point(coords[-1])]
@@ -269,8 +354,7 @@ def extract_points(intersection) -> list[Point]:
         for ls in intersection.geoms:
             coords = list(ls.coords)
             if coords:
-                pts.append(Point(coords[0]))
-                pts.append(Point(coords[-1]))
+                pts.extend([Point(coords[0]), Point(coords[-1])])
         return pts
     if t == "GeometryCollection":
         pts = []
@@ -281,30 +365,20 @@ def extract_points(intersection) -> list[Point]:
 
 
 def compute_crossings(
-    roads: list[dict],
+    road_geoms: list[LineString],
+    road_types: list[str],
     muni_meta: list[tuple],
     tree: STRtree,
     bundesland: str,
 ) -> dict[str, dict]:
-    """Berechnet alle Schnittpunkte Straße × Gemeindegrenze.
-
-    Shapely 2.x Batch-Query: alle Straßen auf einmal gegen den Spatial Index —
-    10–50× schneller als sequentielle Einzelabfragen.
     """
-    # Alle validen Straßen vorbereiten
-    road_geoms: list[LineString] = []
-    road_types: list[str]        = []
-    for way in roads:
-        ls = way_to_linestring(way)
-        if ls is not None and not ls.is_empty:
-            road_geoms.append(ls)
-            road_types.append(way.get("tags", {}).get("highway", ""))
-
-    if not road_geoms:
+    Berechnet alle Schnittpunkte Straße × Grenze (Batch-Query).
+    Funktioniert für Gemeinde- und Ortsteilgrenzen gleichermaßen.
+    """
+    if not road_geoms or not muni_meta:
         return {}
 
-    # Vektorisierte Batch-Query: findet alle (Straße, Gemeindegrenze)-Paare
-    # die sich wirklich schneiden — in einem einzigen Aufruf
+    # Shapely 2.x Batch-Query: alle Straßen auf einmal
     road_idxs, muni_idxs = tree.query(road_geoms, predicate="crosses")
 
     signs: dict[str, dict] = {}
@@ -338,7 +412,7 @@ def compute_crossings(
 
     return signs
 
-# ── 4. Supabase Upload ────────────────────────────────────────────────────────
+# ── 5. Supabase Upload ────────────────────────────────────────────────────────
 
 def _sb(method: str, path: str,
         body: Optional[bytes] = None,
@@ -380,11 +454,10 @@ def upsert_signs(signs: list[dict]) -> None:
 
 
 def delete_stale(current_ids: set[str]) -> None:
-    """Entfernt Einträge, die im aktuellen Lauf nicht mehr vorkommen."""
     print("\nVeraltete Einträge entfernen...")
     status, resp = _sb("GET", "/rest/v1/signs_bkg?select=id&limit=500000")
     if status != 200:
-        print(f"  Konnte bestehende IDs nicht laden (HTTP {status}) — übersprungen.")
+        print(f"  Konnte IDs nicht laden (HTTP {status}) — übersprungen.")
         return
 
     existing = {r["id"] for r in json.loads(resp.decode())}
@@ -404,32 +477,55 @@ def delete_stale(current_ids: set[str]) -> None:
 
 if __name__ == "__main__":
     t0 = time.time()
-    print("=== BKG-Methode: Ortsschild-Import Deutschland ===\n")
+    print("=== BKG + OSM Ortsteil-Methode: Ortsschild-Import Deutschland ===\n")
     print("Rechtsgrundlage: StVO § 42 + VwV-StVO Zeichen 310/311")
-    print("Daten: © GeoBasis-DE / BKG, Lizenz dl-de/by-2-0 | OpenStreetMap-Mitwirkende\n")
+    print("Daten: © GeoBasis-DE / BKG (dl-de/by-2-0) | OpenStreetMap-Mitwirkende\n")
 
-    # 1. Gemeindegrenzen laden + indizieren
-    features         = fetch_municipalities()
-    muni_meta, tree  = build_index(features)
+    # 1. Gemeindegrenzen laden + globalen Index aufbauen
+    features              = fetch_municipalities()
+    gemeinde_meta, g_tree = build_gemeinde_index(features)
+    del features  # Speicher freigeben
 
-    # 2. Pro Bundesland Straßen holen + Schnittpunkte berechnen
+    # 2. Pro Bundesland: Straßen + Gemeinde- und Ortsteil-Schnittpunkte
     all_signs: dict[str, dict] = {}
 
     for bl in BUNDESLAENDER:
         print(f"\n── {bl} ──")
-        ways     = fetch_roads(bl)
+
+        # 2a. Straßen holen
+        ways = fetch_roads(bl)
         if not ways:
-            print("  Keine Straßen gefunden — übersprungen.")
+            print("  Keine Straßen — übersprungen.")
             continue
-        print(f"  {len(ways):,} Straßenabschnitte")
-        crossings = compute_crossings(ways, muni_meta, tree, bl)
-        new_count = sum(1 for k in crossings if k not in all_signs)
-        all_signs.update(crossings)
+        road_geoms, road_types = prepare_roads(ways)
+        del ways  # Speicher freigeben
+        print(f"  {len(road_geoms):,} Straßenabschnitte mit Geometrie")
+
+        # 2b. Gemeinde-Schnittpunkte (BKG)
+        g_signs = compute_crossings(road_geoms, road_types, gemeinde_meta, g_tree, bl)
+        print(f"  Gemeinden: {len(g_signs):,} Schilder")
+
+        # 2c. Ortsteil-Grenzen aus OSM
+        time.sleep(3)
+        ortsteil_relations = fetch_ortsteil_relations(bl)
+        o_signs: dict[str, dict] = {}
+
+        if ortsteil_relations:
+            ortsteil_meta, o_tree = build_ortsteil_index(ortsteil_relations)
+            if o_tree is not None:
+                o_signs = compute_crossings(road_geoms, road_types, ortsteil_meta, o_tree, bl)
+            print(f"  Ortsteile: {len(ortsteil_relations):,} Grenzen → {len(o_signs):,} Schilder")
+
+        # 2d. Zusammenführen (Gemeinde hat Vorrang bei Duplikaten)
+        combined  = {**o_signs, **g_signs}
+        new_count = sum(1 for k in combined if k not in all_signs)
+        all_signs.update(combined)
         print(f"  +{new_count:,} neue Schilder (Gesamt: {len(all_signs):,})")
-        time.sleep(5)    # Overpass Rate-Limit respektieren
+
+        time.sleep(5)
 
     signs_list = list(all_signs.values())
-    print(f"\nGesamt: {len(signs_list):,} Schildpositionen berechnet")
+    print(f"\nGesamt: {len(signs_list):,} Schildpositionen")
 
     # 3. Upload
     upsert_signs(signs_list)
