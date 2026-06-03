@@ -840,6 +840,57 @@
     .code-back:hover { color: var(--text2); }
     .code-msg { display: none; margin-top: 0.7rem; font-size: 0.82rem; color: var(--red); }
 
+    /* Bestätigungs-Modal (ersetzt browser confirm()) */
+    .confirm-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 1200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+    }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      width: min(360px, 100%);
+      padding: 1.6rem 1.5rem 1.3rem;
+      text-align: center;
+    }
+    .confirm-box p {
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 1.4rem;
+      line-height: 1.5;
+    }
+    .confirm-actions { display: flex; gap: 0.6rem; }
+    .confirm-yes {
+      flex: 1;
+      background: var(--red);
+      color: #fff;
+      font-weight: 700;
+      font-family: var(--fb);
+      font-size: 0.9rem;
+      border: none;
+      border-radius: var(--r);
+      padding: 0.65rem;
+      cursor: pointer;
+    }
+    .confirm-no {
+      flex: 1;
+      background: var(--surface3);
+      color: var(--text2);
+      font-family: var(--fb);
+      font-size: 0.9rem;
+      border: none;
+      border-radius: var(--r);
+      padding: 0.65rem;
+      cursor: pointer;
+    }
+    .confirm-no:hover { color: var(--text); }
+
     .error {
       color: var(--red);
       text-align: center;
@@ -1096,6 +1147,17 @@
   </div>
 </div>
 
+<!-- ══ Bestätigungs-Modal ══ -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <p id="confirm-text"></p>
+    <div class="confirm-actions">
+      <button class="confirm-yes" id="confirm-yes">Löschen</button>
+      <button class="confirm-no"  id="confirm-no">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ Auth Screen ══ -->
 <div id="auth-screen">
   <div class="auth-card">
@@ -1178,6 +1240,25 @@
     return h > 0 ? `${h}h ${m}min` : `${m} min`;
   }
   function shortId(id) { return id ? "…" + id.slice(-6) : "?"; }
+
+  // Website-eigenes Bestätigungs-Modal (ersetzt browser confirm()).
+  function showConfirm(text) {
+    return new Promise(resolve => {
+      document.getElementById("confirm-text").textContent = text;
+      const overlay = document.getElementById("confirm-overlay");
+      overlay.classList.add("open");
+      const yes = document.getElementById("confirm-yes");
+      const no  = document.getElementById("confirm-no");
+      function close(val) {
+        overlay.classList.remove("open");
+        yes.replaceWith(yes.cloneNode(true)); // listener entfernen
+        no.replaceWith(no.cloneNode(true));
+        resolve(val);
+      }
+      document.getElementById("confirm-yes").addEventListener("click", () => close(true));
+      document.getElementById("confirm-no").addEventListener("click",  () => close(false));
+    });
+  }
 
   // ── Auth UI ───────────────────────────────────────────────────────────────
 
@@ -1826,7 +1907,7 @@
       <div class="link-device">
         <img src="imageRadcomputer.png" alt="Garmin Radcomputer">
         <h2>Garmin Geräte-ID verknüpfen</h2>
-        <p>Wähle deine letzte Fahrt aus der Liste — sie wird dann automatisch
+        <p>Wähle deine letzte Fahrt aus der Liste, sie wird dann automatisch
            deinem Konto zugeordnet</p>
         <button class="link-browse-btn" id="link-browse">Aus Fahrten auswählen</button>
         <div class="link-msg" id="link-msg"></div>
@@ -1864,8 +1945,8 @@
       const unclaimed = rides.filter(r => r.device_id && !linked.has(r.device_id));
 
       if (unclaimed.length === 0) {
-        listEl.innerHTML = `<div class="picker-empty">Keine unverknüpften Fahrten gefunden.<br>
-          Beende eine Aktivität auf dem Garmin und versuche es erneut.</div>`;
+        listEl.innerHTML = `<div class="picker-empty">Keine unverknüpften Fahrten gefunden<br>
+          Beende eine Aktivität auf dem Garmin und versuche es erneut</div>`;
         return;
       }
 
@@ -2024,7 +2105,7 @@
     );
 
     document.getElementById("featured-delete").addEventListener("click", async () => {
-      if (!confirm("Fahrt löschen?")) return;
+      if (!await showConfirm("Fahrt löschen?")) return;
       // Mit dem Login-Token löschen — RLS erlaubt nur das Löschen eigener Fahrten.
       const delSess = (await sb.auth.getSession()).data.session;
       if (!delSess) { alert("Bitte zuerst anmelden."); return; }
