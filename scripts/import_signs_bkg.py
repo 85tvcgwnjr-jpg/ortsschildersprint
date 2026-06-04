@@ -25,10 +25,10 @@ Vorgehen:
      b. Gemeinde-Schnittpunkte: Straße × BKG-Grenze
      c. Ortsteil-Grenzen aus OSM (admin_level 9/10) laden → lokaler Index
      d. Ortsteil-Schnittpunkte: Straße × OSM-Ortsteilgrenze
-  3. Zusammenführen + Upsert in Supabase signs_bkg
+  3. Zusammenführen + Upsert in Supabase signs
 
 Tabelle anlegen (einmalig im Supabase SQL Editor):
-  CREATE TABLE IF NOT EXISTS signs_bkg (
+  CREATE TABLE IF NOT EXISTS signs (
       id          TEXT PRIMARY KEY,
       name        TEXT NOT NULL,
       lat         DOUBLE PRECISION NOT NULL,
@@ -37,12 +37,12 @@ Tabelle anlegen (einmalig im Supabase SQL Editor):
       bundesland  TEXT,
       created_at  TIMESTAMPTZ DEFAULT now()
   );
-  ALTER TABLE signs_bkg ENABLE ROW LEVEL SECURITY;
-  CREATE POLICY "public read signs_bkg" ON signs_bkg
+  ALTER TABLE signs ENABLE ROW LEVEL SECURITY;
+  CREATE POLICY "public read signs" ON signs
       FOR SELECT TO public USING (true);
 
 Usage:
-  SUPABASE_SERVICE_KEY=<service_role_key> python3 scripts/import_signs_bkg.py
+  SUPABASE_SERVICE_KEY=<service_role_key> python3 scripts/import_signs.py
 
 Runtime: ca. 30–60 Minuten.
 """
@@ -453,7 +453,7 @@ def upsert_signs(signs: list[dict]) -> None:
     for i in range(0, total, BATCH_SIZE):
         batch = signs[i : i + BATCH_SIZE]
         status, resp = _sb(
-            "POST", "/rest/v1/signs_bkg",
+            "POST", "/rest/v1/signs",
             body=json.dumps(batch).encode(),
             extra={"Prefer": "resolution=merge-duplicates,return=minimal"},
         )
@@ -465,7 +465,7 @@ def upsert_signs(signs: list[dict]) -> None:
 
 def delete_stale(current_ids: set[str]) -> None:
     print("\nVeraltete Einträge entfernen...")
-    status, resp = _sb("GET", "/rest/v1/signs_bkg?select=id&limit=500000")
+    status, resp = _sb("GET", "/rest/v1/signs?select=id&limit=500000")
     if status != 200:
         print(f"  Konnte IDs nicht laden (HTTP {status}) — übersprungen.")
         return
@@ -481,7 +481,7 @@ def delete_stale(current_ids: set[str]) -> None:
     for i in range(0, len(stale), 200):
         batch = stale[i : i + 200]
         ids_p = urllib.parse.quote("(" + ",".join(batch) + ")")
-        status, _ = _sb("DELETE", f"/rest/v1/signs_bkg?id=in.{ids_p}")
+        status, _ = _sb("DELETE", f"/rest/v1/signs?id=in.{ids_p}")
         if status not in (200, 204):
             failed += len(batch)
     if failed:
@@ -550,4 +550,4 @@ if __name__ == "__main__":
 
     elapsed = time.time() - t0
     m, s    = divmod(int(elapsed), 60)
-    print(f"\n✓ Fertig in {m}m {s}s — {len(signs_list):,} Schilder in signs_bkg")
+    print(f"\n✓ Fertig in {m}m {s}s — {len(signs_list):,} Schilder in signs")
