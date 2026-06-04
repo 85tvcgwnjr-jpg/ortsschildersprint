@@ -169,11 +169,20 @@ def fetch_municipalities() -> list[dict]:
 
     while True:
         url = BKG_WFS.format(start=start)
-        try:
-            raw  = _get(url, timeout=120)
-            data = json.loads(raw.decode("utf-8"))
-        except Exception as e:
-            print(f"  BKG WFS Fehler bei start={start}: {e}", file=sys.stderr)
+        data = None
+        for attempt in range(4):
+            try:
+                raw  = _get(url, timeout=120)
+                data = json.loads(raw.decode("utf-8"))
+                break
+            except Exception as e:
+                wait = 15 * (attempt + 1)
+                print(f"\n  BKG WFS Fehler (start={start}, Versuch {attempt+1}/4): {e}")
+                if attempt < 3:
+                    print(f"  Warte {wait}s...")
+                    time.sleep(wait)
+        if data is None:
+            print(f"  BKG WFS nach 4 Versuchen nicht erreichbar — Abbruch.", file=sys.stderr)
             sys.exit(1)
 
         batch = data.get("features", [])
@@ -184,7 +193,7 @@ def fetch_municipalities() -> list[dict]:
         if len(batch) < 2000:
             break
         start += 2000
-        time.sleep(0.5)
+        time.sleep(1)
 
     print(f"\n  Gesamt: {len(features):,} Gemeinden")
     return features
