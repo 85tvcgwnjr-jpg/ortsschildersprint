@@ -33,4 +33,4 @@ jobs:
       - name: BKG-Import ausführen
         env:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/import_signs_bkg.py
+        run: python3 scripts/import_signs.py
