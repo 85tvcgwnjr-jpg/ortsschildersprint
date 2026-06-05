@@ -1506,14 +1506,15 @@
     header.style.zIndex = "1001";
   }
   function closeSidebar() {
+    const wasOpen = sidebar.classList.contains("open");
     sidebar.classList.remove("open");
     sidebarOver.classList.remove("open");
     header.classList.remove("menu-open");
     hamburgerBtn.classList.remove("is-open");
     header.style.zIndex = "";
-    // Immer warten bis Maus einmal aus dem Banner raus ist
-    // (auch wenn Maus gerade nicht im Banner ist — sie könnte sofort rein)
-    waitForLeave = true;
+    // Nur wenn Sidebar wirklich offen war — sonst setzt scheduleClose()
+    // das Flag auch auf einer bereits geschlossenen Sidebar
+    if (wasOpen) waitForLeave = true;
   }
 
   // Sidebar öffnet/schließt per Hover über den Header-Banner
