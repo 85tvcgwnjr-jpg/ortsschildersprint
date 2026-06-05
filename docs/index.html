@@ -108,18 +108,6 @@
       animation: sign-pulse 0.9s ease-in-out infinite;
     }
 
-    /* Cooldown: Hover-Effekte deaktiviert (z.B. nach Fahrt-Klick) */
-    header.app-mode.no-hover:hover .cyclists-group {
-      transform: none !important;
-      opacity: 0.5 !important;
-    }
-    header.app-mode.no-hover:hover .speed-lines line {
-      opacity: 0 !important;
-    }
-    header.app-mode.no-hover:hover .sign-group {
-      animation: none !important;
-    }
-
     /* Menu open: cyclists sprint fully off right edge */
     header.menu-open .cyclists-group {
       transform: translateX(1000px) !important;
@@ -1506,33 +1494,25 @@
   const sidebarOver  = document.getElementById("sidebar-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
 
-  let sidebarCooldown = false;
-  let cooldownTimer   = null;
+  let mouseInHeader   = false;
+  let waitForLeave    = false;
 
   function openSidebar() {
-    if (sidebarCooldown) return;
+    if (waitForLeave) return;
     sidebar.classList.add("open");
     sidebarOver.classList.add("open");
     header.classList.add("menu-open");
     hamburgerBtn.classList.add("is-open");
-    // Header über das Overlay heben, damit Hover-Events ankommen
     header.style.zIndex = "1001";
   }
-  function closeSidebar(cooldown = false) {
+  function closeSidebar() {
     sidebar.classList.remove("open");
     sidebarOver.classList.remove("open");
     header.classList.remove("menu-open");
     hamburgerBtn.classList.remove("is-open");
     header.style.zIndex = "";
-    if (cooldown) {
-      sidebarCooldown = true;
-      header.classList.add("no-hover");
-      clearTimeout(cooldownTimer);
-      cooldownTimer = setTimeout(() => {
-        sidebarCooldown = false;
-        header.classList.remove("no-hover");
-      }, 3000);
-    }
+    // Maus noch im Banner → warten bis sie raus ist
+    if (mouseInHeader) waitForLeave = true;
   }
 
   // Sidebar öffnet/schließt per Hover über den Header-Banner
@@ -1550,11 +1530,14 @@
   function isInHeader(node)  { return node && (node === header  || header.contains(node));  }
 
   header.addEventListener("mouseenter", () => {
+    mouseInHeader = true;
     if (!header.classList.contains("app-mode")) return;
     cancelClose();
     openSidebar();
   });
   header.addEventListener("mouseleave", (e) => {
+    mouseInHeader = false;
+    waitForLeave  = false; // Maus raus → Sperre aufheben, ab jetzt normal
     // Maus wechselt zur Sidebar → nicht schließen
     if (isInSidebar(e.relatedTarget)) { cancelClose(); return; }
     scheduleClose();
@@ -1570,17 +1553,15 @@
   // Hamburger-Klick: Sidebar öffnen (immer, auch während Cooldown) oder per X schließen (mit Cooldown)
   hamburgerBtn.addEventListener("click", () => {
     if (sidebar.classList.contains("open")) {
-      closeSidebar(true); // X gedrückt → 5s Cooldown
+      closeSidebar(); 
     } else {
-      sidebarCooldown = false;
-      clearTimeout(cooldownTimer);
-      header.classList.remove("no-hover");
+      waitForLeave = false;
       openSidebar();
     }
   });
 
   // Overlay-Klick schließt Sidebar (mit Cooldown — Nutzer klickt bewusst daneben)
-  sidebarOver.addEventListener("click", () => closeSidebar(true));
+  sidebarOver.addEventListener("click", () => closeSidebar());
 
   document.getElementById("sidebar-logout").addEventListener("click", () => {
     closeSidebar();
@@ -2326,7 +2307,7 @@
       item.addEventListener("click", async () => {
         document.querySelectorAll(".sidebar-ride-item").forEach(el => el.classList.remove("active"));
         item.classList.add("active");
-        closeSidebar(true); // Cooldown: 5s kein Hover-Reopen
+        closeSidebar(); 
         await renderFeaturedRide(ride);
         renderSidebarRides(ride.id);
       });
