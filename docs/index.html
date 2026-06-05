@@ -1494,8 +1494,7 @@
   const sidebarOver  = document.getElementById("sidebar-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
 
-  let mouseInHeader   = false;
-  let waitForLeave    = false;
+  let waitForLeave = false;
 
   function openSidebar() {
     if (waitForLeave) return;
@@ -1505,16 +1504,16 @@
     hamburgerBtn.classList.add("is-open");
     header.style.zIndex = "1001";
   }
-  function closeSidebar() {
+  // lock=true: explizites Schließen (Fahrt, X, Overlay) → Sperre bis Maus Banner verlässt
+  // lock=false: natürliches Hover-out → sofort wieder offen beim nächsten Hover
+  function closeSidebar(lock = false) {
     const wasOpen = sidebar.classList.contains("open");
     sidebar.classList.remove("open");
     sidebarOver.classList.remove("open");
     header.classList.remove("menu-open");
     hamburgerBtn.classList.remove("is-open");
     header.style.zIndex = "";
-    // Nur wenn Sidebar wirklich offen war — sonst setzt scheduleClose()
-    // das Flag auch auf einer bereits geschlossenen Sidebar
-    if (wasOpen) waitForLeave = true;
+    if (lock && wasOpen) waitForLeave = true;
   }
 
   // Sidebar öffnet/schließt per Hover über den Header-Banner
@@ -1555,15 +1554,14 @@
   // Hamburger-Klick: Sidebar öffnen (immer, auch während Cooldown) oder per X schließen (mit Cooldown)
   hamburgerBtn.addEventListener("click", () => {
     if (sidebar.classList.contains("open")) {
-      closeSidebar(); 
+      closeSidebar(true); // X: explizit → Sperre bis Maus Banner verlässt
     } else {
       waitForLeave = false;
       openSidebar();
     }
   });
 
-  // Overlay-Klick schließt Sidebar (mit Cooldown — Nutzer klickt bewusst daneben)
-  sidebarOver.addEventListener("click", () => closeSidebar());
+  sidebarOver.addEventListener("click", () => closeSidebar(true)); // Overlay: explizit
 
   document.getElementById("sidebar-logout").addEventListener("click", () => {
     closeSidebar();
@@ -2309,7 +2307,7 @@
       item.addEventListener("click", async () => {
         document.querySelectorAll(".sidebar-ride-item").forEach(el => el.classList.remove("active"));
         item.classList.add("active");
-        closeSidebar(); 
+        closeSidebar(true); // Fahrt-Klick: explizit → Sperre bis Maus Banner verlässt
         await renderFeaturedRide(ride);
         renderSidebarRides(ride.id);
       });
