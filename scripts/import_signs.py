@@ -121,12 +121,11 @@ def make_id(lat: float, lon: float) -> str:
 
 def road_bearing_at_point(ls: LineString, pt: Point) -> float:
     """
-    Kompassrichtung der Straße am dem Schnittpunkt nächsten Segment (0=N, CW, Grad).
-    Wird als 'bearing' in der signs-Tabelle gespeichert; das Garmin-Gerät
-    berechnet daraus die 50 m breite Querungslinie (⊥ zur Straße).
+    Kompassrichtung der Straße am nächsten Segment zu pt (0=N, CW, Grad).
+    Gibt die Digitalisierungsrichtung der Straße zurück — nicht notwendigerweise
+    die Einfahrtsrichtung. Für die Einfahrtsrichtung: compute_entry_bearing().
 
-    Direkte Float-Arithmetik statt Shapely-Objekten in der inneren Schleife —
-    vermeidet ~1.8M temporäre LineString-Objekte bei 177k Schildern.
+    Direkte Float-Arithmetik statt Shapely-Objekten in der inneren Schleife.
     """
     coords = list(ls.coords)
     best_dist_sq = float("inf")
@@ -141,7 +140,6 @@ def road_bearing_at_point(ls: LineString, pt: Point) -> float:
         if seg_sq == 0.0:
             d_sq = (px - x1) ** 2 + (py - y1) ** 2
         else:
-            # Parameter t: Projektion von pt auf das Segment, geklemmt auf [0, 1]
             t = max(0.0, min(1.0, ((px - x1) * sdx + (py - y1) * sdy) / seg_sq))
             nx = x1 + t * sdx - px
             ny = y1 + t * sdy - py
@@ -149,11 +147,48 @@ def road_bearing_at_point(ls: LineString, pt: Point) -> float:
         if d_sq < best_dist_sq:
             best_dist_sq = d_sq
             lat_mid = (y1 + y2) / 2.0
-            # East-Komponente (Längengrad-Stauchung bei lat_mid berücksichtigen)
             east = (x2 - x1) * math.cos(math.radians(lat_mid))
             bearing = math.degrees(math.atan2(east, y2 - y1)) % 360.0
 
     return round(bearing, 1)
+
+
+def compute_entry_bearing(ls: LineString, pt: Point, poly) -> float:
+    """
+    Einfahrtsrichtung des Schilds: Kompassrichtung von außen in den Ort (0=N, CW, Grad).
+
+    Vorgehensweise:
+      1. Basisrichtung der Straße am Schnittpunkt berechnen (road_bearing_at_point).
+      2. Einen kleinen Schritt vorwärts entlang der Straße interpolieren.
+      3. Liegt der Vorwärtspunkt im Ortspolygon? → Basisrichtung ist Einfahrtsrichtung.
+         Liegt der Rückwärtspunkt im Polygon?    → Einfahrtsrichtung = Basis + 180°.
+      4. Fallback bei Randlagen: Basisrichtung beibehalten.
+
+    Das Garmin-Gerät nutzt entry_bearing für den Dot-Product-Check:
+    Nur wenn der Fahrer sich in Einfahrtsrichtung bewegt, wird ein Crossing gewertet.
+    """
+    STEP = 0.0001  # ~11 m in Grad — klein genug für alle Ortsgrößen
+
+    base = road_bearing_at_point(ls, pt)
+    proj = ls.project(pt)
+    total = ls.length
+
+    try:
+        # Vorwärts entlang der Straße
+        if proj + STEP <= total:
+            fwd_pt = ls.interpolate(proj + STEP)
+            if poly.contains(fwd_pt):
+                return base                          # vorwärts = in den Ort
+
+        # Rückwärts entlang der Straße
+        if proj - STEP >= 0:
+            bwd_pt = ls.interpolate(proj - STEP)
+            if poly.contains(bwd_pt):
+                return (base + 180.0) % 360.0       # rückwärts = in den Ort
+    except Exception as e:
+        print(f"  [compute_entry_bearing] Fehler: {e}", file=sys.stderr)
+
+    return base  # Fallback: Digitalisierungsrichtung
 
 
 def _get(url: str, timeout: int = 120) -> bytes:
@@ -264,7 +299,7 @@ def build_gemeinde_index(features: list[dict]) -> tuple[list, STRtree]:
             if boundary.is_empty:
                 continue
 
-            muni_meta.append((boundary, name, bl))
+            muni_meta.append((boundary, geom, name, bl))
             boundaries.append(boundary)
         except Exception as e:
             errors += 1
@@ -373,7 +408,7 @@ def build_ortsteil_index(relations: list[dict]) -> tuple[list, Optional[STRtree]
             if boundary.is_empty:
                 continue
 
-            muni_meta.append((boundary, name, ""))
+            muni_meta.append((boundary, poly, name, ""))
             boundaries.append(boundary)
         except Exception:
             continue
@@ -434,7 +469,7 @@ def compute_crossings(
     for road_idx, muni_idx in zip(road_idxs, muni_idxs):
         ls        = road_geoms[road_idx]
         road_type = road_types[road_idx]
-        boundary, name, bl = muni_meta[muni_idx]
+        boundary, poly, name, bl = muni_meta[muni_idx]
 
         try:
             intersection = ls.intersection(boundary)
@@ -456,9 +491,9 @@ def compute_crossings(
                     "lon":        round(pt.x, 6),
                     "road_type":  road_type,
                     "bundesland": bl or bundesland,
-                    # Fahrtrichtung der Straße am Schnittpunkt — wird auf dem Gerät zur
-                    # Berechnung der Querungslinie (⊥ zur Straße, ±25 m) genutzt.
-                    "bearing":    road_bearing_at_point(ls, pt),
+                    # Einfahrtsrichtung (von außen in den Ort) — das Gerät wertet
+                    # nur Kreuzungen in dieser Richtung (±90°) als Sprint-Ziel.
+                    "entry_bearing": compute_entry_bearing(ls, pt, poly),
                 }
 
     return signs
