@@ -108,6 +108,18 @@
       animation: sign-pulse 0.9s ease-in-out infinite;
     }
 
+    /* Cooldown: Hover-Effekte deaktiviert (z.B. nach Fahrt-Klick) */
+    header.app-mode.no-hover:hover .cyclists-group {
+      transform: none !important;
+      opacity: 0.5 !important;
+    }
+    header.app-mode.no-hover:hover .speed-lines line {
+      opacity: 0 !important;
+    }
+    header.app-mode.no-hover:hover .sign-group {
+      animation: none !important;
+    }
+
     /* Menu open: cyclists sprint fully off right edge */
     header.menu-open .cyclists-group {
       transform: translateX(1000px) !important;
@@ -1514,8 +1526,12 @@
     header.style.zIndex = "";
     if (cooldown) {
       sidebarCooldown = true;
+      header.classList.add("no-hover");
       clearTimeout(cooldownTimer);
-      cooldownTimer = setTimeout(() => { sidebarCooldown = false; }, 5000);
+      cooldownTimer = setTimeout(() => {
+        sidebarCooldown = false;
+        header.classList.remove("no-hover");
+      }, 3000);
     }
   }
 
@@ -1556,8 +1572,9 @@
     if (sidebar.classList.contains("open")) {
       closeSidebar(true); // X gedrückt → 5s Cooldown
     } else {
-      sidebarCooldown = false;           // Klick übersteuert Cooldown
+      sidebarCooldown = false;
       clearTimeout(cooldownTimer);
+      header.classList.remove("no-hover");
       openSidebar();
     }
   });
