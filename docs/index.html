@@ -1494,17 +1494,29 @@
   const sidebarOver  = document.getElementById("sidebar-overlay");
   const hamburgerBtn = document.getElementById("hamburger-btn");
 
+  let sidebarCooldown = false;
+  let cooldownTimer   = null;
+
   function openSidebar() {
+    if (sidebarCooldown) return;
     sidebar.classList.add("open");
     sidebarOver.classList.add("open");
     header.classList.add("menu-open");
     hamburgerBtn.classList.add("is-open");
+    // Header über das Overlay heben, damit Hover-Events ankommen
+    header.style.zIndex = "1001";
   }
-  function closeSidebar() {
+  function closeSidebar(cooldown = false) {
     sidebar.classList.remove("open");
     sidebarOver.classList.remove("open");
     header.classList.remove("menu-open");
     hamburgerBtn.classList.remove("is-open");
+    header.style.zIndex = "";
+    if (cooldown) {
+      sidebarCooldown = true;
+      clearTimeout(cooldownTimer);
+      cooldownTimer = setTimeout(() => { sidebarCooldown = false; }, 5000);
+    }
   }
 
   // Sidebar öffnet/schließt per Hover über den Header-Banner
@@ -2283,7 +2295,7 @@
       item.addEventListener("click", async () => {
         document.querySelectorAll(".sidebar-ride-item").forEach(el => el.classList.remove("active"));
         item.classList.add("active");
-        closeSidebar();
+        closeSidebar(true); // Cooldown: 5s kein Hover-Reopen
         await renderFeaturedRide(ride);
         renderSidebarRides(ride.id);
       });
