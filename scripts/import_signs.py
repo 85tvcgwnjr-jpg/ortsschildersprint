@@ -49,6 +49,7 @@ Runtime: ca. 30–60 Minuten.
 
 import hashlib
 import json
+import math
 import os
 import sys
 import time
@@ -116,6 +117,43 @@ def make_id(lat: float, lon: float) -> str:
     """Stabiler ID aus gerundeten Koordinaten (~11 m Präzision)."""
     key = f"{round(lat, 4)},{round(lon, 4)}"
     return "bkg_" + hashlib.sha1(key.encode()).hexdigest()[:12]
+
+
+def road_bearing_at_point(ls: LineString, pt: Point) -> float:
+    """
+    Kompassrichtung der Straße am dem Schnittpunkt nächsten Segment (0=N, CW, Grad).
+    Wird als 'bearing' in der signs-Tabelle gespeichert; das Garmin-Gerät
+    berechnet daraus die 50 m breite Querungslinie (⊥ zur Straße).
+
+    Direkte Float-Arithmetik statt Shapely-Objekten in der inneren Schleife —
+    vermeidet ~1.8M temporäre LineString-Objekte bei 177k Schildern.
+    """
+    coords = list(ls.coords)
+    best_dist_sq = float("inf")
+    bearing = 0.0
+    px, py = pt.x, pt.y
+
+    for i in range(len(coords) - 1):
+        x1, y1 = coords[i]
+        x2, y2 = coords[i + 1]
+        sdx, sdy = x2 - x1, y2 - y1
+        seg_sq = sdx * sdx + sdy * sdy
+        if seg_sq == 0.0:
+            d_sq = (px - x1) ** 2 + (py - y1) ** 2
+        else:
+            # Parameter t: Projektion von pt auf das Segment, geklemmt auf [0, 1]
+            t = max(0.0, min(1.0, ((px - x1) * sdx + (py - y1) * sdy) / seg_sq))
+            nx = x1 + t * sdx - px
+            ny = y1 + t * sdy - py
+            d_sq = nx * nx + ny * ny
+        if d_sq < best_dist_sq:
+            best_dist_sq = d_sq
+            lat_mid = (y1 + y2) / 2.0
+            # East-Komponente (Längengrad-Stauchung bei lat_mid berücksichtigen)
+            east = (x2 - x1) * math.cos(math.radians(lat_mid))
+            bearing = math.degrees(math.atan2(east, y2 - y1)) % 360.0
+
+    return round(bearing, 1)
 
 
 def _get(url: str, timeout: int = 120) -> bytes:
@@ -418,6 +456,9 @@ def compute_crossings(
                     "lon":        round(pt.x, 6),
                     "road_type":  road_type,
                     "bundesland": bl or bundesland,
+                    # Fahrtrichtung der Straße am Schnittpunkt — wird auf dem Gerät zur
+                    # Berechnung der Querungslinie (⊥ zur Straße, ±25 m) genutzt.
+                    "bearing":    road_bearing_at_point(ls, pt),
                 }
 
     return signs
