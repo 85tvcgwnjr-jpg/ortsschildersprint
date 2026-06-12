@@ -1298,7 +1298,7 @@
     <button class="btn-logout" id="btn-logout">Abmelden</button>
   </div>
   <div class="container">
-    <div id="root" class="empty-state"><img src="imageBike.png" style="width:110px;height:auto;opacity:0.25;margin-bottom:.8rem;display:block;margin-left:auto;margin-right:auto"><strong>Lade Fahrten…</strong></div>
+    <div id="root"></div>
   </div>
 </div>
 
@@ -1687,6 +1687,7 @@
         }).catch(() => {});
       }
 
+      document.getElementById("root").innerHTML = `<div class="empty-state">${BIKE_SVG}<strong>Lade Fahrten…</strong></div>`;
       loadApp(deviceId);
     } else {
       closeSidebar();
