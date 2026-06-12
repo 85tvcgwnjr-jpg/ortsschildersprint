@@ -1,6 +1,6 @@
 {
-  "name": "Ortsschilder Sprint",
-  "short_name": "Ortsschilder",
+  "name": "ortsschildersprint",
+  "short_name": "ortsschilder",
   "description": "Ortsschilder als Sprint-Ziele — Garmin DataField App",
   "start_url": "./",
   "display": "standalone",
@@ -9,15 +9,21 @@
   "icons": [
     {
       "src": "favicon.png",
-      "sizes": "any",
+      "sizes": "32x32",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "favicon.png",
-      "sizes": "any",
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
