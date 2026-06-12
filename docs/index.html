@@ -99,14 +99,6 @@
       opacity: 0.35 !important;
     }
 
-    /* Sign — glow pulse on hover (app mode only) */
-    @keyframes sign-pulse {
-      0%, 100% { filter: drop-shadow(0 0 6px rgba(255,204,0,0.3)); }
-      50%       { filter: drop-shadow(0 0 20px rgba(255,204,0,0.75)); }
-    }
-    header.app-mode:hover .sign-group {
-      animation: sign-pulse 0.9s ease-in-out infinite;
-    }
 
     /* no-hover: Banner-Animationen während waitForLeave deaktiviert */
     header.app-mode.no-hover:hover .cyclists-group {
@@ -114,7 +106,6 @@
       opacity: 0.5 !important;
     }
     header.app-mode.no-hover:hover .speed-lines line { opacity: 0 !important; }
-    header.app-mode.no-hover:hover .sign-group { animation: none !important; }
 
     /* Menu open: cyclists sprint fully off right edge */
     header.menu-open .cyclists-group {
@@ -465,15 +456,7 @@
     .auth-check a { color: var(--yellow); text-decoration: none; }
     .auth-check a:hover { text-decoration: underline; }
 
-    /* Footer */
-    .site-footer {
-      text-align: center;
-      padding: 2rem 1rem;
-      font-size: 0.78rem;
-      color: var(--text3);
-    }
-    .site-footer a { color: var(--text3); text-decoration: none; }
-    .site-footer a:hover { color: var(--yellow); }
+
 
     /* ── PWA Install Button ── */
     #pwa-install-btn {
@@ -1315,7 +1298,7 @@
     <button class="btn-logout" id="btn-logout">Abmelden</button>
   </div>
   <div class="container">
-    <div id="root" class="loading">Lade Fahrten…</div>
+    <div id="root" class="empty-state"><img src="imageBike.png" style="width:110px;height:auto;opacity:0.25;margin-bottom:.8rem;display:block;margin-left:auto;margin-right:auto"><strong>Lade Fahrten…</strong></div>
   </div>
 </div>
 
@@ -1711,7 +1694,9 @@
       hamburgerBtn.classList.remove("visible");
       document.getElementById("auth-screen").style.display = "flex";
       document.getElementById("app-screen").style.display  = "none";
-      document.getElementById("root").innerHTML = '<div class="loading">Lade Fahrten…</div>';
+      document.getElementById("root").innerHTML = `<div class="empty-state">${BIKE_SVG}<strong>Lade Fahrten…</strong></div>`;
+      document.getElementById("login-email").value    = "";
+      document.getElementById("login-password").value = "";
     }
   });
 
@@ -2325,10 +2310,6 @@
     });
   }
 </script>
-
-<footer class="site-footer">
-  <a href="datenschutz.html">Datenschutzerklärung</a>
-</footer>
 
 <!-- PWA Install Button -->
 <button id="pwa-install-btn" title="Als App installieren" aria-label="Als App installieren">
